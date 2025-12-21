@@ -1,0 +1,21 @@
+# --- Segurança e Ambiente (Pega em qualquer nível) ---
+**/.env
+**/.venv
+**/env/
+**/venv/
+
+# --- Python Geral ---
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# --- Específico do seu projeto ---
+eva-enterprise/.env
+eva-enterprise/.venv
+
+# --- IDEs ---
+.vscode/
+.idea/
+
+# --- Logs ---
+*.log
