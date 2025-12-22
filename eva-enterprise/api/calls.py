@@ -46,7 +46,8 @@ async def make_call(agendamento_id: int = Body(..., embed=True)):
 
         # 3. Dispara ligação via Twilio
         sid = await orchestrator.initiate_call(
-            to_number=agendamento.telefone
+            to_number=agendamento.telefone,
+            agendamento_id=agendamento_id
         )
 
         print(f"📞 Ligação disparada: SID={sid}, Agendamento={agendamento_id}")

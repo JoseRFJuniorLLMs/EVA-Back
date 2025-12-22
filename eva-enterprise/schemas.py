@@ -274,9 +274,9 @@ class PagamentoResponse(PagamentoCreate):
 
 class AuditLogResponse(BaseModel):
     id: int
-    acao: str
-    usuario: str
-    detalhes: Optional[Dict[str, Any]]
+    acao: Optional[str] = None
+    usuario: Optional[str] = "Sistema"
+    detalhes: Optional[Dict[str, Any]] = None
     data: datetime
     class Config:
         from_attributes = True

@@ -12,7 +12,71 @@ from typing import List
 
 router = APIRouter()
 
-# --- Configurations ---
+
+# --- Prompts ---
+
+@router.get("/prompts/", response_model=List[PromptResponse])
+def list_prompts(db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.get_prompts()
+
+@router.post("/prompts/", response_model=PromptResponse)
+def create_prompt(prompt: PromptCreate, db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.create_prompt(prompt.nome, prompt.template, prompt.versao)
+
+@router.put("/prompts/{id}", response_model=PromptResponse)
+def update_prompt(id: int, prompt_update: dict, db: Session = Depends(get_db)):
+    # Assuming partial update for version/template
+    repo = ConfigRepository(db)
+    updated = repo.update_prompt(id, prompt_update)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Prompt not found")
+    return updated
+
+# --- Funcoes ---
+
+@router.get("/funcoes/", response_model=List[FuncaoResponse])
+def list_functions(db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.get_functions()
+
+@router.post("/funcoes/", response_model=FuncaoResponse)
+def create_function(func: FuncaoCreate, db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.create_function(func.nome, func.descricao, func.parameters, func.tipo_tarefa)
+
+# --- Circuit Breakers ---
+
+@router.get("/circuit-breakers", response_model=List[CircuitBreakerResponse])
+def list_circuit_breakers(db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.get_circuit_breakers()
+
+@router.post("/circuit-breakers/reset/{id}", response_model=CircuitBreakerResponse)
+def reset_circuit_breaker(id: int, db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    cb = repo.reset_circuit_breaker(id)
+    if not cb:
+        raise HTTPException(status_code=404, detail="Circuit Breaker not found")
+    return cb
+
+# --- Rate Limits ---
+
+@router.get("/rate-limits", response_model=List[RateLimitResponse])
+def list_rate_limits(db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    return repo.get_rate_limits()
+
+@router.put("/rate-limits/{id}", response_model=RateLimitResponse)
+def update_rate_limit(id: int, limit: RateLimitUpdate, db: Session = Depends(get_db)):
+    repo = ConfigRepository(db)
+    updated = repo.update_rate_limit(id, limit.limit_count, limit.interval_seconds)
+    if not updated:
+        raise HTTPException(status_code=404, detail="Rate Limit not found")
+    return updated
+
+# --- Configurations (Dynamic Routes Last) ---
 
 @router.get("/", response_model=List[ConfigResponse])
 def list_configs(db: Session = Depends(get_db)):
@@ -51,65 +115,3 @@ def delete_config(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Config not found")
     return {"message": "Config deleted"}
 
-# --- Prompts ---
-
-@router.get("/prompts", response_model=List[PromptResponse])
-def list_prompts(db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.get_prompts()
-
-@router.post("/prompts", response_model=PromptResponse)
-def create_prompt(prompt: PromptCreate, db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.create_prompt(prompt.nome, prompt.template, prompt.versao)
-
-@router.put("/prompts/{id}", response_model=PromptResponse)
-def update_prompt(id: int, prompt_update: dict, db: Session = Depends(get_db)):
-    # Assuming partial update for version/template
-    repo = ConfigRepository(db)
-    updated = repo.update_prompt(id, prompt_update)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Prompt not found")
-    return updated
-
-# --- Funcoes ---
-
-@router.get("/funcoes", response_model=List[FuncaoResponse])
-def list_functions(db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.get_functions()
-
-@router.post("/funcoes", response_model=FuncaoResponse)
-def create_function(func: FuncaoCreate, db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.create_function(func.nome, func.descricao, func.parameters, func.tipo_tarefa)
-
-# --- Circuit Breakers ---
-
-@router.get("/circuit-breakers", response_model=List[CircuitBreakerResponse])
-def list_circuit_breakers(db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.get_circuit_breakers()
-
-@router.post("/circuit-breakers/reset/{id}", response_model=CircuitBreakerResponse)
-def reset_circuit_breaker(id: int, db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    cb = repo.reset_circuit_breaker(id)
-    if not cb:
-        raise HTTPException(status_code=404, detail="Circuit Breaker not found")
-    return cb
-
-# --- Rate Limits ---
-
-@router.get("/rate-limits", response_model=List[RateLimitResponse])
-def list_rate_limits(db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    return repo.get_rate_limits()
-
-@router.put("/rate-limits/{id}", response_model=RateLimitResponse)
-def update_rate_limit(id: int, limit: RateLimitUpdate, db: Session = Depends(get_db)):
-    repo = ConfigRepository(db)
-    updated = repo.update_rate_limit(id, limit.limit_count, limit.interval_seconds)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Rate Limit not found")
-    return updated

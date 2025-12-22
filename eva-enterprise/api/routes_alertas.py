@@ -42,7 +42,7 @@ def get_insights(idoso_id: int, db: Session = Depends(get_db)):
     repo = AlertaRepository(db)
     return repo.get_insights(idoso_id)
 
-@router.post("/psicologia-insights", response_model=PsicologiaInsightResponse)
+@router.post("/psicologia-insights/", response_model=PsicologiaInsightResponse)
 def generate_insight(data: InsightGenerate, db: Session = Depends(get_db)):
     repo = AlertaRepository(db)
     # Mock Logic -> In real app, call LLM here
@@ -60,7 +60,7 @@ def update_topico(idoso_id: int, topico: str, db: Session = Depends(get_db)):
     updated = repo.update_topico(idoso_id, topico)
     return {"message": "Topic updated", "topico": updated.topico}
 
-@router.get("/psicologia-insights/historico/{idoso_id}")
+@router.get("/psicologia-insights/historico/{idoso_id}/")
 def get_emotional_history(idoso_id: int):
     # Returns mock time-series data matching the frontend Recharts structure
     # Frontend expects: [{data: 'Mon', feliz: 40, neutro: 20, triste: 10}, ...]

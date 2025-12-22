@@ -9,11 +9,12 @@ class CallOrchestrator:
             print(f"Warning: Twilio client not initialized (missing creds?): {e}")
             self.client = None
 
-    def initiate_call(self, to_number: str):
+    def initiate_call(self, to_number: str, agendamento_id: int):
         if not self.client:
             raise Exception("Twilio client validation failed")
 
-        url = f"https://{settings.SERVICE_DOMAIN}/twiml"
+        # Passa o ID do agendamento para o callback
+        url = f"https://{settings.SERVICE_DOMAIN}/calls/twiml?agendamento_id={agendamento_id}"
         
         try:
             call = self.client.calls.create(
