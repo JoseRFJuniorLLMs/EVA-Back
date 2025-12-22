@@ -4,7 +4,7 @@ Script de diagnóstico para verificar por que os routers não aparecem
 import sys
 import traceback
 
-sys.path.insert(0, 'd:\\dev\\EVA-back\\eva-enterprise')
+sys.path.insert(0, '/eva-enterprise')
 
 print("="*60)
 print("DIAGNÓSTICO DE ROUTERS")

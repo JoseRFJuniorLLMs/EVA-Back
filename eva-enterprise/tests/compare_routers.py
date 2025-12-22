@@ -2,7 +2,7 @@
 Compara as definições dos routers para encontrar diferenças
 """
 import sys
-sys.path.insert(0, '.')
+sys.path.insert(0, '..')
 
 print("="*70)
 print("COMPARAÇÃO: calls.py vs routes_alertas.py")

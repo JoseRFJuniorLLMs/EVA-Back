@@ -1,5 +1,5 @@
 import sys
-sys.path.insert(0, 'd:\\dev\\EVA-back\\eva-enterprise')
+sys.path.insert(0, '/eva-enterprise')
 
 from main import app
 

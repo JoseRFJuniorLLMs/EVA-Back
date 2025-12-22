@@ -2,7 +2,7 @@ import sys
 import os
 
 # Add project root to path
-sys.path.append("d:\\dev\\EVA-back\\eva-enterprise")
+sys.path.append("/eva-enterprise")
 
 try:
     print("Verifying imports...")

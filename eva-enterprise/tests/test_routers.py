@@ -2,7 +2,7 @@
 Script para verificar se todos os routers estão sendo registrados corretamente
 """
 import sys
-sys.path.insert(0, 'd:\\dev\\EVA-back\\eva-enterprise')
+sys.path.insert(0, '/eva-enterprise')
 
 from fastapi import FastAPI
 
