@@ -1,7 +1,7 @@
 -- ================================================================
 -- EVA ENTERPRISE - SCHEMA SQL COMPLETO
--- Versão: 2.0 (Refatoração Enterprise)
--- Data: 2025-01-20
+-- Versão: 6.0 (Suporte a Psicologia IA, Legado e Sinais Vitais)
+-- Data: 2025-12-21
 -- ================================================================
 
 -- ================================================================
@@ -393,6 +393,8 @@ CREATE TABLE idosos (
     nome VARCHAR(255) NOT NULL,
     data_nascimento DATE NOT NULL,
     telefone VARCHAR(20) NOT NULL,
+    foto_url TEXT,                      -- RECURSO: Foto do Idoso
+    intro_audio_url TEXT,               -- RECURSO: Intro de Voz Familiar
     
     -- Perfil de Saúde
     nivel_cognitivo VARCHAR(50) DEFAULT 'normal' CHECK (nivel_cognitivo IN ('normal', 'leve', 'moderado', 'severo')),
@@ -428,6 +430,29 @@ CREATE TABLE idosos (
     
     CONSTRAINT chk_idade CHECK (EXTRACT(YEAR FROM AGE(data_nascimento)) >= 0)
 );
+
+-- ================================================================
+-- TABELA 4.1: membros_familia (NOVA)
+-- Para Árvore Genealógica e Responsáveis
+-- ================================================================
+CREATE TABLE membros_familia (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    parent_id INTEGER REFERENCES membros_familia(id), -- Auto-relacionamento para Árvore
+    nome VARCHAR(255) NOT NULL,
+    parentesco VARCHAR(100) NOT NULL,
+    foto_url TEXT,
+    is_responsavel BOOLEAN DEFAULT false,
+    telefone VARCHAR(20),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_familia_idoso ON membros_familia(idoso_id);
+
+CREATE TRIGGER trigger_familia_timestamp
+BEFORE UPDATE ON membros_familia
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 CREATE INDEX idx_idoso_telefone ON idosos(telefone) WHERE ativo = true;
 CREATE INDEX idx_idoso_ativo ON idosos(ativo);
@@ -531,6 +556,10 @@ CREATE TABLE historico_ligacoes (
     sentimento_intensidade INTEGER CHECK (sentimento_intensidade BETWEEN 1 AND 10),
     acoes_registradas JSONB DEFAULT '[]',
     
+    -- Métricas de Custo (FinOps)
+    tokens_gemini INTEGER DEFAULT 0,    -- RECURSO: FinOps
+    minutos_twilio INTEGER DEFAULT 0,    -- RECURSO: FinOps
+    
     -- Metadata
     criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -588,6 +617,35 @@ CREATE INDEX idx_alerta_enviado ON alertas(enviado);
 CREATE INDEX idx_alerta_resolvido ON alertas(resolvido);
 
 -- ================================================================
+-- TABELA 7.1: protocolos_alerta (NOVA)
+-- Configuração do Orquestrador de Fluxos
+-- ================================================================
+CREATE TABLE protocolos_alerta (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    nome VARCHAR(100) DEFAULT 'Protocolo Padrão',
+    ativo BOOLEAN DEFAULT true,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE protocolo_etapas (
+    id SERIAL PRIMARY KEY,
+    protocolo_id INTEGER NOT NULL REFERENCES protocolos_alerta(id) ON DELETE CASCADE,
+    ordem INTEGER NOT NULL,
+    acao VARCHAR(50) NOT NULL, -- RETRY, NOTIFY_WA, NOTIFY_SMS
+    delay_minutos INTEGER DEFAULT 5,
+    tentativas INTEGER DEFAULT 1,
+    contato_alvo VARCHAR(255),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trigger_protocolo_timestamp
+BEFORE UPDATE ON protocolos_alerta
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ================================================================
 -- TABELA 8: medicamentos (NOVA)
 -- Catálogo de medicamentos por idoso
 -- ================================================================
@@ -611,6 +669,96 @@ CREATE INDEX idx_medicamento_nome ON medicamentos(nome);
 CREATE TRIGGER trigger_medicamento_timestamp
 BEFORE UPDATE ON medicamentos
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ================================================================
+-- TABELA 9: idosos_memoria (NOVA)
+-- Fatos biográficos para personalização da EVA
+-- ================================================================
+CREATE TABLE idosos_memoria (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    categoria VARCHAR(100) NOT NULL, -- Família, Hobbies, Profissão, etc.
+    chave VARCHAR(255) NOT NULL,    -- Ex: "Neto Preferido"
+    valor TEXT NOT NULL,           -- Ex: "Joãozinho"
+    relevancia VARCHAR(20) DEFAULT 'media' CHECK (relevancia IN ('baixa', 'media', 'alta')),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_memoria_idoso ON idosos_memoria(idoso_id);
+
+CREATE TRIGGER trigger_memoria_timestamp
+BEFORE UPDATE ON idosos_memoria
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ================================================================
+-- TABELA 10: idosos_perfil_clinico (NOVA)
+-- Dados médicos críticos para emergências
+-- ================================================================
+CREATE TABLE idosos_perfil_clinico (
+    idoso_id INTEGER PRIMARY KEY REFERENCES idosos(id) ON DELETE CASCADE,
+    tipo_sanguineo VARCHAR(5) CHECK (tipo_sanguineo IN ('A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-')),
+    alergias TEXT,
+    restricoes_locomocao TEXT,
+    doencas_cronicas TEXT,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trigger_perfil_clinico_timestamp
+BEFORE UPDATE ON idosos_perfil_clinico
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ================================================================
+-- TABELA 11: assinaturas_entidade (NOVA)
+-- Controle de faturamento e limites Enterprise
+-- ================================================================
+CREATE TABLE assinaturas_entidade (
+    id SERIAL PRIMARY KEY,
+    entidade_nome VARCHAR(255) NOT NULL, -- Nome da clínica ou responsável
+    status VARCHAR(50) DEFAULT 'ativo' CHECK (status IN ('ativo', 'cancelado', 'pendente', 'suspenso')),
+    plano_id VARCHAR(50) NOT NULL,         -- Ex: 'enterprise_v1'
+    data_proxima_cobranca DATE,
+    limite_minutos INTEGER DEFAULT 1000,
+    minutos_consumidos INTEGER DEFAULT 0,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER trigger_assinatura_timestamp
+BEFORE UPDATE ON assinaturas_entidade
+FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ================================================================
+-- TABELA 12: faturamento_consumo (NOVA)
+-- Dados para FinOps Dashboard
+-- ================================================================
+CREATE TABLE faturamento_consumo (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER REFERENCES idosos(id) ON DELETE CASCADE,
+    mes_referencia INTEGER NOT NULL,
+    ano_referencia INTEGER NOT NULL,
+    total_tokens INTEGER DEFAULT 0,
+    total_minutos INTEGER DEFAULT 0,
+    custo_total_estimado DECIMAL(10,2) DEFAULT 0.00,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ================================================================
+-- TABELA 13: audit_logs (NOVA)
+-- Sistema de Auditoria Completo
+-- ================================================================
+CREATE TABLE audit_logs (
+    id SERIAL PRIMARY KEY,
+    usuario_email VARCHAR(255),
+    acao VARCHAR(100) NOT NULL,
+    recurso VARCHAR(255),
+    detalhes TEXT,
+    ip_address VARCHAR(45),
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_audit_acao ON audit_logs(acao);
+CREATE INDEX idx_audit_usuario ON audit_logs(usuario_email);
 
 -- ================================================================
 -- VIEWS ÚTEIS
@@ -754,5 +902,60 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- ================================================================
--- FIM DO SCHEMA
+-- TABELA 14: idosos_legado_digital (NOVA)
+-- Cápsula do tempo para familiares
+-- ================================================================
+CREATE TABLE idosos_legado_digital (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    tipo VARCHAR(50) NOT NULL CHECK (tipo IN ('audio', 'video', 'imagem', 'carta')),
+    titulo VARCHAR(255) NOT NULL,
+    url_midia TEXT NOT NULL, 
+    destinatario VARCHAR(255),
+    protegido BOOLEAN DEFAULT true,
+    criado_em TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ================================================================
+-- TABELA 15: psicologia_insights (NOVA)
+-- Insights gerados pela Psicóloga IA
+-- ================================================================
+CREATE TABLE psicologia_insights (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    tipo VARCHAR(50) NOT NULL CHECK (tipo IN ('positivo', 'alerta', 'vincular', 'evolucao')),
+    mensagem TEXT NOT NULL,
+    data_insight TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    relevancia VARCHAR(20) DEFAULT 'media'
+);
+
+-- ================================================================
+-- TABELA 16: topicos_afetivos (NOVA)
+-- Nuvem de Tópicos e Frequência de Menções
+-- ================================================================
+CREATE TABLE topicos_afetivos (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    topico VARCHAR(100) NOT NULL,
+    frequencia INTEGER DEFAULT 1,
+    sentimento_associado VARCHAR(50),
+    ultima_mencao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ================================================================
+-- TABELA 17: sinais_vitais (NOVA)
+-- Monitoramento de Saúde via Voz/Conversa
+-- ================================================================
+CREATE TABLE sinais_vitais (
+    id SERIAL PRIMARY KEY,
+    idoso_id INTEGER NOT NULL REFERENCES idosos(id) ON DELETE CASCADE,
+    tipo VARCHAR(100) NOT NULL, -- 'pressao_arterial', 'glicose', 'temperatura'
+    valor VARCHAR(50) NOT NULL,
+    unidade VARCHAR(20),
+    metodo VARCHAR(50) DEFAULT 'voz_ia',
+    data_medicao TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ================================================================
+-- FIM DO SCHEMA v6.0
 -- ================================================================
