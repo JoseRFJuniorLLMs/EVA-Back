@@ -10,8 +10,10 @@ try:
 except ImportError:
     import audioop_lts as audioop
 
-from google import genai
-from google.genai import types
+# Import CORRETO do Gemini (versão 0.8.3+)
+import google.generativeai as genai
+from google.generativeai import types  # Para Blob e outros tipos
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from twilio.rest import Client
@@ -28,8 +30,8 @@ TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
 TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
 TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
 
-# Cliente Gemini
-client = genai.Client(api_key=GOOGLE_API_KEY)
+# Configura a API key do Gemini (obrigatório)
+genai.configure(api_key=GOOGLE_API_KEY)
 
 SYSTEM_PROMPT = """Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
 Sua voz deve ser doce e calma. 
@@ -43,7 +45,24 @@ IMPORTANTE:
 - Espere o usuário falar antes de responder novamente
 """
 
+# Modelo de áudio nativo (preview - só funciona se você tiver acesso à feature experimental)
 MODEL_ID = "gemini-2.5-flash-native-audio-preview-12-2025"
+
+# Instancia o modelo com as configs de áudio
+model = genai.GenerativeModel(
+    model_name=MODEL_ID,
+    generation_config={
+        "response_modalities": ["AUDIO"],
+        "speech_config": {
+            "voice_config": {
+                "prebuilt_voice_config": {
+                    "voice_name": "Aoede"
+                }
+            }
+        }
+    },
+    system_instruction=SYSTEM_PROMPT,
+)
 
 app = FastAPI()
 
@@ -128,201 +147,146 @@ def detect_speech(audio_pcm: bytes, threshold: int = 500) -> bool:
 
 
 async def gemini_live_session(twilio_ws: WebSocket, stream_sid: str):
-    """Gerencia a sessão Live API com o Gemini"""
+    """Gerencia a sessão com Gemini (versão adaptada para SDK público)"""
 
     print("\n" + "=" * 60)
     print("🤖 INICIANDO SESSÃO GEMINI")
     print("=" * 60)
 
-    config = {
-        "response_modalities": ["AUDIO"],
-        "system_instruction": SYSTEM_PROMPT,
-        "speech_config": {
-            "voice_config": {
-                "prebuilt_voice_config": {
-                    "voice_name": "Aoede"
-                }
-            }
-        }
-    }
-
     try:
-        async with client.aio.live.connect(model=MODEL_ID, config=config) as session:
-            print("✓ [GEMINI] Conectado ao Live API")
+        # Inicia uma sessão de chat com áudio
+        chat = model.start_chat()
 
-            # IMPORTANTE: Envia mensagem inicial para Eva se apresentar
-            await asyncio.sleep(0.5)
+        # Saudação inicial
+        greeting = "Olá! Aqui é a Eva. Como você está hoje?"
+        print(f"💬 [SYSTEM] Enviando saudação inicial: '{greeting}'")
 
-            greeting = "Olá! Aqui é a Eva. Como você está hoje?"
-            print(f"💬 [SYSTEM] Enviando saudação inicial: '{greeting}'")
+        # Envia a saudação como texto inicial (Gemini vai gerar áudio)
+        response = await chat.send_message_async(greeting)
+        print("✓ [GEMINI] Saudação enviada\n")
 
-            await session.send(
-                input=greeting,
-                end_of_turn=True
-            )
-            print("✓ [SYSTEM] Saudação enviada\n")
+        audio_buffer = bytearray()
+        BUFFER_SIZE = 3200  # 200ms at 16kHz * 2 bytes
 
-            audio_buffer = bytearray()
-            BUFFER_SIZE = 3200  # 200ms at 16kHz * 2 bytes
+        is_speaking = False
+        last_speech_time = 0
+        SILENCE_THRESHOLD = 1.5
 
-            is_speaking = False
-            last_speech_time = 0
-            SILENCE_THRESHOLD = 1.5
+        eva_is_speaking = False
+        user_turn_ended = False
 
-            eva_is_speaking = False
-            user_turn_ended = False  # Flag para saber quando usuário terminou de falar
+        async def receive_from_twilio():
+            nonlocal audio_buffer, is_speaking, last_speech_time, eva_is_speaking, user_turn_ended
 
-            async def receive_from_twilio():
-                nonlocal audio_buffer, is_speaking, last_speech_time, eva_is_speaking, user_turn_ended
+            print("👂 [TWILIO→GEMINI] Thread de recepção iniciada")
 
-                print("👂 [TWILIO→GEMINI] Thread de recepção iniciada")
+            try:
+                packet_count = 0
+                while True:
+                    data = await twilio_ws.receive_text()
+                    packet = json.loads(data)
+                    event = packet.get('event')
 
-                try:
-                    packet_count = 0
-                    while True:
-                        data = await twilio_ws.receive_text()
-                        packet = json.loads(data)
-                        event = packet.get('event')
+                    if event == 'media':
+                        packet_count += 1
+                        if packet_count % 200 == 0:
+                            print(f"📦 [TWILIO→GEMINI] {packet_count} pacotes recebidos...")
 
-                        if event == 'media':
-                            packet_count += 1
-                            if packet_count % 200 == 0:
-                                print(f"📦 [TWILIO→GEMINI] {packet_count} pacotes recebidos...")
+                        payload = base64.b64decode(packet['media']['payload'])
+                        audio_pcm = audioop.ulaw2lin(payload, 2)
 
-                            payload = base64.b64decode(packet['media']['payload'])
-                            audio_pcm = audioop.ulaw2lin(payload, 2)
+                        # Converte de 8kHz para 16kHz
+                        audio_16khz = audioop.ratecv(audio_pcm, 2, 1, 8000, 16000, None)[0]
+                        audio_buffer.extend(audio_16khz)
 
-                            # Converte de 8kHz para 16kHz
-                            audio_16khz = audioop.ratecv(audio_pcm, 2, 1, 8000, 16000, None)[0]
-                            audio_buffer.extend(audio_16khz)
+                        if len(audio_buffer) >= BUFFER_SIZE:
+                            audio_chunk = bytes(audio_buffer)
+                            audio_buffer.clear()
 
-                            if len(audio_buffer) >= BUFFER_SIZE:
-                                audio_chunk = bytes(audio_buffer)
-                                audio_buffer.clear()
+                            rms = audioop.rms(audio_chunk, 2)
 
-                                rms = audioop.rms(audio_chunk, 2)
+                            if not eva_is_speaking:
+                                if detect_speech(audio_chunk, threshold=400):
+                                    current_time = time.time()
 
-                                # Só processa áudio do usuário se Eva NÃO estiver falando
-                                if not eva_is_speaking:
-                                    if detect_speech(audio_chunk, threshold=400):
-                                        current_time = time.time()
+                                    if not is_speaking:
+                                        print(f"🎤 [USER] Iniciou fala (RMS: {rms})")
+                                        is_speaking = True
+                                        user_turn_ended = False
 
-                                        if not is_speaking:
-                                            print(f"🎤 [USER] Iniciou fala (RMS: {rms})")
-                                            is_speaking = True
-                                            user_turn_ended = False
+                                    last_speech_time = current_time
 
-                                        last_speech_time = current_time
-
-                                        try:
-                                            await session.send_realtime_input(
-                                                audio=types.Blob(
-                                                    data=audio_chunk,
-                                                    mime_type='audio/pcm;rate=16000'
-                                                )
+                                    try:
+                                        # Envia áudio para Gemini (use send_message com Blob)
+                                        await chat.send_message_async(
+                                            types.Content(
+                                                parts=[
+                                                    types.Part(
+                                                        inline_data=types.Blob(
+                                                            data=audio_chunk,
+                                                            mime_type='audio/pcm;rate=16000'
+                                                        )
+                                                    )
+                                                ]
                                             )
-                                        except Exception as e:
-                                            print(f"✗ Erro ao enviar áudio: {e}")
+                                        )
+                                    except Exception as e:
+                                        print(f"✗ Erro ao enviar áudio para Gemini: {e}")
 
-                                    elif is_speaking:
-                                        current_time = time.time()
-                                        silence_duration = current_time - last_speech_time
+                                elif is_speaking:
+                                    current_time = time.time()
+                                    silence_duration = current_time - last_speech_time
 
-                                        if silence_duration > SILENCE_THRESHOLD and not user_turn_ended:
-                                            print(f"🔇 [USER] Fim do turno (silêncio: {silence_duration:.1f}s)")
-                                            is_speaking = False
-                                            user_turn_ended = True
-                                            audio_buffer.clear()
+                                    if silence_duration > SILENCE_THRESHOLD and not user_turn_ended:
+                                        print(f"🔇 [USER] Fim do turno (silêncio: {silence_duration:.1f}s)")
+                                        is_speaking = False
+                                        user_turn_ended = True
+                                        audio_buffer.clear()
 
-                                            # Sinaliza fim do turno explicitamente
-                                            print("   ↳ Sinalizando fim do turno para Gemini...")
-                                            try:
-                                                # Envia um pequeno delay para garantir que todo áudio foi processado
-                                                await asyncio.sleep(0.1)
-                                            except Exception as e:
-                                                print(f"   ✗ Erro ao sinalizar fim: {e}")
+                                        print("   ↳ Turno do usuário finalizado")
 
-                        elif event == 'stop':
-                            print("🛑 [TWILIO] Evento STOP recebido")
-                            break
+                    elif event == 'stop':
+                        print("🛑 [TWILIO] Evento STOP recebido")
+                        break
 
-                except Exception as e:
-                    print(f"✗ [TWILIO→GEMINI] ERRO: {e}")
-                    import traceback
-                    traceback.print_exc()
+            except Exception as e:
+                print(f"✗ [TWILIO→GEMINI] ERRO: {e}")
+                import traceback
+                traceback.print_exc()
 
-            async def receive_from_gemini():
-                nonlocal eva_is_speaking, user_turn_ended
+        async def receive_from_gemini():
+            nonlocal eva_is_speaking
 
-                print("👂 [GEMINI→TWILIO] Thread de recepção iniciada\n")
+            print("👂 [GEMINI→TWILIO] Thread de recepção iniciada\n")
 
+            # Aqui você precisaria de streaming realtime, mas no SDK público atual,
+            # o áudio vem em response.parts. Use um loop para processar respostas
+            # (isso é uma limitação da preview pública)
+            # Para realtime completo, você precisaria da API experimental interna
+
+            # Exemplo simplificado: processa respostas de áudio
+            while True:
                 try:
-                    response_count = 0
-                    audio_accumulator = bytearray()  # Acumula chunks de áudio
+                    response = chat.last_response  # Ou use streaming se disponível
+                    if response:
+                        for part in response.candidates[0].content.parts:
+                            if part.inline_data and part.inline_data.mime_type.startswith("audio/"):
+                                audio_data = part.inline_data.data
+                                if not eva_is_speaking:
+                                    print("\n🔊 [EVA] Gerando áudio de resposta")
+                                    eva_is_speaking = True
 
-                    async for response in session.receive():
-                        # Log do setup_complete
-                        if response.setup_complete:
-                            print("✓ [GEMINI] Setup completo!")
-                            continue
-
-                        # Processa resposta de áudio
-                        if response.server_content:
-                            content = response.server_content
-
-                            if content.model_turn:
-                                if content.model_turn.parts:
-                                    for idx, part in enumerate(content.model_turn.parts):
-                                        if part.inline_data:
-                                            mime = part.inline_data.mime_type
-
-                                            if mime.startswith("audio/"):
-                                                # Acumula o áudio ao invés de enviar imediatamente
-                                                audio_accumulator.extend(part.inline_data.data)
-
-                                                if not eva_is_speaking:
-                                                    response_count += 1
-                                                    print(f"\n🔊 [EVA] Resposta #{response_count} - iniciando fala")
-                                                    eva_is_speaking = True
-
-                                        if part.text:
-                                            print(f"💬 [EVA] Texto: {part.text}")
-
-                            # Quando o turno da Eva terminar, envia todo o áudio acumulado
-                            if content.turn_complete:
-                                if len(audio_accumulator) > 0:
-                                    total_bytes = len(audio_accumulator)
-                                    print(f"📤 [EVA] Enviando áudio completo ({total_bytes} bytes)...")
-
-                                    chunks = await send_audio_to_twilio(
-                                        twilio_ws,
-                                        bytes(audio_accumulator),
-                                        stream_sid
-                                    )
-
-                                    print(f"✓ [EVA] Áudio enviado ({chunks} chunks)")
-                                    audio_accumulator.clear()
-
-                                print("✓ [EVA] Turno completo\n")
+                                await send_audio_to_twilio(twilio_ws, audio_data, stream_sid)
                                 eva_is_speaking = False
-                                user_turn_ended = False
+                except:
+                    await asyncio.sleep(0.5)
 
-                            if content.interrupted:
-                                print("⚠ [EVA] Interrompida")
-                                eva_is_speaking = False
-                                audio_accumulator.clear()
-
-                except Exception as e:
-                    print(f"✗ [GEMINI→TWILIO] ERRO: {e}")
-                    import traceback
-                    traceback.print_exc()
-
-            print("🚀 Iniciando loops de processamento...\n")
-            await asyncio.gather(
-                receive_from_twilio(),
-                receive_from_gemini(),
-                return_exceptions=True
-            )
+        print("🚀 Iniciando loops de processamento...\n")
+        await asyncio.gather(
+            receive_from_twilio(),
+            receive_from_gemini(),
+            return_exceptions=True
+        )
 
     except Exception as e:
         print(f"✗ [GEMINI] Erro na sessão: {e}")

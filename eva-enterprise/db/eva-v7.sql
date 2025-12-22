@@ -422,6 +422,10 @@ CREATE TABLE idosos (
     medicamentos_atuais JSONB DEFAULT '[]',
     condicoes_medicas TEXT,
     
+    -- Estado Emocional e Tracking (Frontend)
+    sentimento VARCHAR(50) DEFAULT 'neutro' CHECK (sentimento IN ('feliz', 'neutro', 'triste', 'ansioso', 'irritado', 'confuso', 'apatico')),
+    agendamentos_pendentes INTEGER DEFAULT 0,
+    
     -- Metadata
     notas_gerais TEXT,
     ativo BOOLEAN DEFAULT true,

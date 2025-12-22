@@ -2,10 +2,12 @@
 Medicamento Repository - Gerencia acesso a dados de medicamentos
 Versão: Produção (com Fuzzy Matching)
 """
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 import unicodedata
 from sqlalchemy import func
 from sqlalchemy.orm import Session
+from ..models import Medicamento, SinaisVitais
+import datetime
 
 # Tenta importar fuzzywuzzy para busca fuzzy
 try:
@@ -239,3 +241,64 @@ class MedicamentoRepository:
         nome = ' '.join(nome.split())
         
         return nome
+
+    # CRUD Operations
+    def create(self, dados: dict) -> Medicamento:
+        med = Medicamento(**dados)
+        self.db.add(med)
+        self.db.commit()
+        self.db.refresh(med)
+        return med
+
+    def get_by_id(self, id: int) -> Optional[Medicamento]:
+        return self.db.query(Medicamento).filter(Medicamento.id == id).first()
+
+    def update(self, id: int, dados: dict) -> Optional[Medicamento]:
+        med = self.get_by_id(id)
+        if med:
+            for k, v in dados.items():
+                if v is not None:
+                    setattr(med, k, v)
+            self.db.commit()
+            self.db.refresh(med)
+        return med
+
+    def delete(self, id: int) -> bool:
+        med = self.get_by_id(id)
+        if med:
+            # Soft delete? Or hard? Plan says "desativa" which implies soft delete or update active=False
+            # But the requirement said "DELETE /medicamentos/{id} (desativa)".
+            # So I will set active=False or actually delete?
+            # User said "DELETE ... (desativa)". I will set active=False.
+            med.ativo = False
+            self.db.commit()
+            return True
+        return False
+        
+    def confirm_intake(self, medicamento_id: int, agendamento_id: int = None):
+        # Implementation for confirming intake could go here or in agendamento logic
+        pass
+
+class SinaisVitaisRepository:
+    def __init__(self, db: Session):
+        self.db = db
+
+    def create(self, dados: dict) -> SinaisVitais:
+        sinal = SinaisVitais(**dados)
+        self.db.add(sinal)
+        self.db.commit()
+        self.db.refresh(sinal)
+        return sinal
+
+    def get_by_idoso(self, idoso_id: int, limit: int = 20) -> List[SinaisVitais]:
+        return self.db.query(SinaisVitais)\
+            .filter(SinaisVitais.idoso_id == idoso_id)\
+            .order_by(SinaisVitais.data_medicao.desc())\
+            .limit(limit).all()
+
+    def get_weekly_report(self, idoso_id: int) -> List[SinaisVitais]:
+        week_ago = datetime.datetime.now() - datetime.timedelta(days=7)
+        return self.db.query(SinaisVitais)\
+            .filter(SinaisVitais.idoso_id == idoso_id, SinaisVitais.data_medicao >= week_ago)\
+            .all()
+
