@@ -14,12 +14,12 @@ router = APIRouter()
 
 # --- Configurations ---
 
-@router.get("/configs", response_model=List[ConfigResponse])
+@router.get("/", response_model=List[ConfigResponse])
 def list_configs(db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     return repo.get_all_configs()
 
-@router.get("/configs/{chave}", response_model=ConfigResponse)
+@router.get("/{chave}", response_model=ConfigResponse)
 def get_config(chave: str, db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     config = repo.get_config_by_key(chave)
@@ -27,7 +27,7 @@ def get_config(chave: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Config not found")
     return config
 
-@router.post("/configs", response_model=ConfigResponse)
+@router.post("/", response_model=ConfigResponse)
 def create_config(config: ConfigCreate, db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     # Check if exists
@@ -35,7 +35,7 @@ def create_config(config: ConfigCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Config key already exists")
     return repo.create_config(config.chave, config.valor, config.tipo, config.categoria)
 
-@router.put("/configs/{id}", response_model=ConfigResponse)
+@router.put("/{id}", response_model=ConfigResponse)
 def update_config(id: int, config: ConfigUpdate, db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     updated = repo.update_config(id, config.model_dump())
@@ -43,7 +43,7 @@ def update_config(id: int, config: ConfigUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Config not found")
     return updated
 
-@router.delete("/configs/{id}")
+@router.delete("/{id}")
 def delete_config(id: int, db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     success = repo.delete_config(id)

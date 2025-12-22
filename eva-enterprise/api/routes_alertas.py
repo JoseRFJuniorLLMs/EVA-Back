@@ -12,17 +12,17 @@ router = APIRouter()
 
 # --- Alertas ---
 
-@router.get("/alertas", response_model=List[AlertaResponse])
+@router.get("/", response_model=List[AlertaResponse])
 def list_alertas(tipo: str = None, limit: int = 50, db: Session = Depends(get_db)):
     repo = AlertaRepository(db)
     return repo.get_recent_alerts(limit=limit, tipo=tipo)
 
-@router.post("/alertas", response_model=AlertaResponse)
+@router.post("/", response_model=AlertaResponse)
 def create_alerta(alerta: AlertaCreate, db: Session = Depends(get_db)):
     repo = AlertaRepository(db)
     return repo.create_alerta(alerta.tipo, alerta.descricao)
 
-@router.get("/alertas/{id}", response_model=AlertaResponse)
+@router.get("/{id}", response_model=AlertaResponse)
 def get_alerta(id: int, db: Session = Depends(get_db)):
     repo = AlertaRepository(db)
     alerta = repo.get_by_id(id)
@@ -30,7 +30,7 @@ def get_alerta(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Alerta not found")
     return alerta
 
-@router.post("/alertas/enviar-familiar")
+@router.post("/enviar-familiar")
 def send_alert_to_family(alerta_id: int):
     # Mock logic to send notification
     return {"message": "Notification sent to family"}

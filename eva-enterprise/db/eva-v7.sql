@@ -393,6 +393,7 @@ CREATE TABLE idosos (
     nome VARCHAR(255) NOT NULL,
     data_nascimento DATE NOT NULL,
     telefone VARCHAR(20) NOT NULL,
+    cpf VARCHAR(14) UNIQUE CHECK (cpf ~* '^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$'),
     foto_url TEXT,                      -- RECURSO: Foto do Idoso
     intro_audio_url TEXT,               -- RECURSO: Intro de Voz Familiar
     
@@ -459,6 +460,7 @@ BEFORE UPDATE ON membros_familia
 FOR EACH ROW EXECUTE FUNCTION update_timestamp();
 
 CREATE INDEX idx_idoso_telefone ON idosos(telefone) WHERE ativo = true;
+CREATE INDEX idx_idoso_cpf ON idosos(cpf) WHERE cpf IS NOT NULL;
 CREATE INDEX idx_idoso_ativo ON idosos(ativo);
 
 CREATE TRIGGER trigger_idoso_timestamp

@@ -71,6 +71,7 @@ class RateLimitResponse(BaseModel):
 class IdosoBase(BaseModel):
     nome: str
     telefone: str
+    cpf: Optional[str] = None
     data_nascimento: Optional[str] = None
     foto_url: Optional[str] = None
     endereco: Optional[str] = None
@@ -86,6 +87,7 @@ class IdosoCreate(IdosoBase):
 class IdosoUpdate(BaseModel):
     nome: Optional[str] = None
     telefone: Optional[str] = None
+    cpf: Optional[str] = None
     data_nascimento: Optional[str] = None
     foto_url: Optional[str] = None
     endereco: Optional[str] = None

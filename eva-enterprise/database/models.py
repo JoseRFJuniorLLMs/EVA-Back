@@ -9,6 +9,7 @@ class Idoso(Base):
     nome = Column(String, nullable=False)
     data_nascimento = Column(String)  # DATE in SQL, using String for SQLite compatibility
     telefone = Column(String, nullable=False)
+    cpf = Column(String, unique=True)  # CPF brasileiro (formato: 000.000.000-00 ou 00000000000)
     foto_url = Column(Text)
     intro_audio_url = Column(Text)
     

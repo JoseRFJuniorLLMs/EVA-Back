@@ -1,7 +1,10 @@
-import uvicorn
+"""
+Script para verificar se todos os routers estão sendo registrados corretamente
+"""
+import sys
+sys.path.insert(0, 'd:\\dev\\EVA-back\\eva-enterprise')
+
 from fastapi import FastAPI
-from database.connection import engine, Base
-from config.settings import settings
 
 # Imports from api package
 from api.routes_alertas import router as alertas_router
@@ -10,16 +13,12 @@ from api.routes_extras import router as extras_router
 from api.routes_idosos import router as idosos_router
 from api.routes_medicamentos import router as medicamentos_router
 from api.routes_pagamentos import router as pagamentos_router
-# from api.webhooks import router as webhooks_router  # Temporarily disabled - requires webrtcvad
 from api.calls import router as calls_router
 from api.routes_agendamentos import router as agendamentos_router
 from api.routes_orquestrador import router as orquestrador_router
 
-# Create Database Tables
-Base.metadata.create_all(bind=engine)
-
 app = FastAPI(
-    title="EVA Enterprise API",
+    title="EVA Enterprise API - TEST",
     description="API set for Eva Enterprise",
     version="6.0"
 )
@@ -32,25 +31,30 @@ app.include_router(orquestrador_router, prefix="/orquestrador", tags=["Orquestra
 app.include_router(idosos_router, prefix="/idosos", tags=["Idosos e Familiares"])
 app.include_router(medicamentos_router, prefix="/medicamentos", tags=["Medicamentos e Sinais Vitais"])
 app.include_router(pagamentos_router, prefix="/pagamentos", tags=["Pagamentos e Auditoria"])
-# app.include_router(webhooks_router, tags=["Webhooks"])  # Temporarily disabled - requires webrtcvad
 app.include_router(calls_router, tags=["Chamadas"])
 app.include_router(agendamentos_router, prefix="/agendamentos", tags=["Agendamentos e Histórico"])
 
-@app.get("/")
-def root():
-    return {"message": "Eva Enterprise Running 🚀"}
+print("\n" + "="*60)
+print("✅ VERIFICAÇÃO DE ROUTERS")
+print("="*60)
 
-# Inicia o scheduler automático quando roda diretamente
-if __name__ == "__main__":
-    print("=" * 60)
-    print("🚀 EVA ENTERPRISE - Assistente de Voz")
-    print("=" * 60)
-    print(f"Porta: {settings.PORT}")
-    print(f"Domínio: {settings.SERVICE_DOMAIN}")
-    print("=" * 60 + "\n")
+# Lista todas as rotas registradas
+routes_by_tag = {}
+for route in app.routes:
+    if hasattr(route, 'tags') and route.tags:
+        for tag in route.tags:
+            if tag not in routes_by_tag:
+                routes_by_tag[tag] = []
+            routes_by_tag[tag].append(f"{route.methods} {route.path}")
 
-    # Importa e inicia o scheduler
-    # from scheduler import iniciar_scheduler
-    # iniciar_scheduler()
+print(f"\n📊 Total de rotas: {len(app.routes)}")
+print(f"📊 Total de tags: {len(routes_by_tag)}\n")
 
-    uvicorn.run(app, host="0.0.0.0", port=settings.PORT)
+for tag, routes in sorted(routes_by_tag.items()):
+    print(f"\n🏷️  {tag} ({len(routes)} rotas):")
+    for route in sorted(routes):
+        print(f"   {route}")
+
+print("\n" + "="*60)
+print("Se você vê múltiplas tags acima, os routers estão OK!")
+print("="*60 + "\n")

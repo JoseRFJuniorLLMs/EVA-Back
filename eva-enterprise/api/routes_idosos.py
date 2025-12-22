@@ -13,7 +13,7 @@ router = APIRouter()
 
 # --- Idosos ---
 
-@router.get("/idosos", response_model=List[IdosoResponse])
+@router.get("/", response_model=List[IdosoResponse])
 def list_idosos(nome: str = None, telefone: str = None, skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     # Basic filtering logic could be improved in repo
@@ -24,7 +24,7 @@ def list_idosos(nome: str = None, telefone: str = None, skip: int = 0, limit: in
         all_idosos = [i for i in all_idosos if telefone in i.telefone]
     return all_idosos
 
-@router.get("/idosos/{id}", response_model=IdosoResponse)
+@router.get("/{id}", response_model=IdosoResponse)
 def get_idoso(id: int, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     idoso = repo.get_by_id(id)
@@ -32,14 +32,14 @@ def get_idoso(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Idoso not found")
     return idoso
 
-@router.post("/idosos", response_model=IdosoResponse)
+@router.post("/", response_model=IdosoResponse)
 def create_idoso(idoso: IdosoCreate, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     if repo.get_by_telefone(idoso.telefone):
         raise HTTPException(status_code=400, detail="Telefone already registered")
     return repo.create(idoso.model_dump())
 
-@router.put("/idosos/{id}", response_model=IdosoResponse)
+@router.put("/{id}", response_model=IdosoResponse)
 def update_idoso(id: int, idoso: IdosoUpdate, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     updated = repo.update(id, idoso.model_dump(exclude_unset=True))
@@ -47,7 +47,7 @@ def update_idoso(id: int, idoso: IdosoUpdate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Idoso not found")
     return updated
 
-@router.delete("/idosos/{id}")
+@router.delete("/{id}")
 def delete_idoso(id: int, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     success = repo.delete(id)
@@ -57,7 +57,7 @@ def delete_idoso(id: int, db: Session = Depends(get_db)):
 
 # --- Familiares ---
 
-@router.get("/idosos/{id}/familiares", response_model=List[FamiliarResponse])
+@router.get("/{id}/familiares", response_model=List[FamiliarResponse])
 def list_familiares(id: int, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     # Check if idoso exists
@@ -65,7 +65,7 @@ def list_familiares(id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Idoso not found")
     return repo.get_familiares(id)
 
-@router.post("/idosos/{id}/familiares", response_model=FamiliarResponse)
+@router.post("/{id}/familiares", response_model=FamiliarResponse)
 def add_familiar(id: int, familiar: FamiliarCreate, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     if not repo.get_by_id(id):
@@ -82,14 +82,14 @@ def update_familiar(id: int, familiar: FamiliarUpdate, db: Session = Depends(get
 
 # --- Legado Digital ---
 
-@router.get("/idosos/{id}/legado-digital", response_model=List[LegadoDigitalResponse])
+@router.get("/{id}/legado-digital", response_model=List[LegadoDigitalResponse])
 def list_legado(id: int, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     if not repo.get_by_id(id):
         raise HTTPException(status_code=404, detail="Idoso not found")
     return repo.get_legado(id)
 
-@router.post("/idosos/{id}/legado-digital", response_model=LegadoDigitalResponse)
+@router.post("/{id}/legado-digital", response_model=LegadoDigitalResponse)
 def add_legado(id: int, legado: LegadoDigitalCreate, db: Session = Depends(get_db)):
     repo = IdosoRepository(db)
     if not repo.get_by_id(id):

@@ -1,0 +1,37 @@
+﻿============================================================
+DIAGNÓSTICO DE ROUTERS
+============================================================
+
+1. Testando imports individuais:
+------------------------------------------------------------
+✅ alertas         - OK
+✅ config          - OK
+⚠️ fuzzywuzzy não disponível. Execute: pip install python-Levenshtein fuzzywuzzy
+✅ extras          - OK
+✅ idosos          - OK
+✅ medicamentos    - OK
+✅ pagamentos      - OK
+✅ calls           - OK
+✅ agendamentos    - OK
+✅ orquestrador    - OK
+
+2. Testando importação do main.py:
+------------------------------------------------------------
+✅ main.py importado com sucesso
+✅ Total de rotas registradas: 70
+
+3. Rotas por tag:
+------------------------------------------------------------
+  Agendamentos e Histórico                 - 7 rotas
+  Alertas e Insights                       - 9 rotas
+  Chamadas                                 - 4 rotas
+  Configurações                            - 14 rotas
+  Extras e Relatórios                      - 4 rotas
+  Idosos e Familiares                      - 11 rotas
+  Medicamentos e Sinais Vitais             - 9 rotas
+  Orquestrador de Fluxos                   - 2 rotas
+  Pagamentos e Auditoria                   - 5 rotas
+
+✅ SUCESSO: 9 tags encontradas
+
+============================================================

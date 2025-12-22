@@ -11,17 +11,17 @@ router = APIRouter()
 
 # --- Pagamentos ---
 
-@router.get("/pagamentos", response_model=List[PagamentoResponse])
+@router.get("/", response_model=List[PagamentoResponse])
 def list_pagamentos(status: str = None, limit: int = 50, db: Session = Depends(get_db)):
     repo = PagamentoRepository(db)
     return repo.get_pagamentos(limit=limit, status=status)
 
-@router.post("/pagamentos", response_model=PagamentoResponse)
+@router.post("/", response_model=PagamentoResponse)
 def create_pagamento(pagamento: PagamentoCreate, db: Session = Depends(get_db)):
     repo = PagamentoRepository(db)
     return repo.create_pagamento(pagamento.model_dump())
 
-@router.get("/pagamentos/{id}", response_model=PagamentoResponse)
+@router.get("/{id}", response_model=PagamentoResponse)
 def get_pagamento(id: int, db: Session = Depends(get_db)):
     repo = PagamentoRepository(db)
     pag = repo.get_by_id(id)

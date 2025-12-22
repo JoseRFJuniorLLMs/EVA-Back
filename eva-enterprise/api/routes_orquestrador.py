@@ -20,7 +20,7 @@ MOCK_FLOWS = [
     }
 ]
 
-@router.get("/fluxos/{idoso_id}", response_model=FlowResponse)
+@router.get("/{idoso_id}", response_model=FlowResponse)
 def get_flow(idoso_id: int):
     # Find active flow for idoso
     flow = next((f for f in MOCK_FLOWS if f["idoso_id"] == idoso_id), None)
@@ -35,7 +35,7 @@ def get_flow(idoso_id: int):
         }
     return flow
 
-@router.post("/fluxos", response_model=FlowResponse)
+@router.post("/", response_model=FlowResponse)
 def create_flow(flow_data: FlowCreate):
     new_id = len(MOCK_FLOWS) + 1
     new_flow = {
