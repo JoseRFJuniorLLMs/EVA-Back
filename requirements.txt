@@ -38,3 +38,4 @@ passlib[bcrypt]==1.7.4
 
 # Agendamento de tarefas
 apscheduler==3.10.4
+Faker==33.1.0
