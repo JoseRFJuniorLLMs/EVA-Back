@@ -1,7 +1,7 @@
-# Core do projeto
 fastapi==0.115.2
 uvicorn[standard]==0.32.0
 sqlalchemy==2.0.36
+asyncpg==0.29.0
 
 # Banco de dados
 psycopg2-binary==2.9.10
@@ -41,3 +41,6 @@ apscheduler==3.10.4
 # Fuzzy Search
 fuzzywuzzy==0.18.0
 python-Levenshtein==0.23.0
+
+# Ferramentas de Teste
+faker==33.1.0

@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from ..models import Configuracao, Prompt, Funcao, CircuitBreakerState, RateLimit
+from ..models import Configuracao, PromptTemplate, FunctionDefinition, CircuitBreakerState, RateLimit
 from typing import List, Optional
 
 class ConfigRepository:
@@ -47,20 +47,20 @@ class ConfigRepository:
         return False
 
     # Prompts
-    async def get_prompts(self) -> List[Prompt]:
-        query = select(Prompt)
+    async def get_prompts(self) -> List[PromptTemplate]:
+        query = select(PromptTemplate)
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def create_prompt(self, nome: str, template: str, versao: str) -> Prompt:
-        prompt = Prompt(nome=nome, template=template, versao=versao)
+    async def create_prompt(self, nome: str, template: str, versao: str) -> PromptTemplate:
+        prompt = PromptTemplate(nome=nome, template=template, versao=versao)
         self.db.add(prompt)
         await self.db.commit()
         await self.db.refresh(prompt)
         return prompt
 
-    async def update_prompt(self, id: int, updates: dict) -> Optional[Prompt]:
-        query = select(Prompt).filter(Prompt.id == id)
+    async def update_prompt(self, id: int, updates: dict) -> Optional[PromptTemplate]:
+        query = select(PromptTemplate).filter(PromptTemplate.id == id)
         result = await self.db.execute(query)
         prompt = result.scalar_one_or_none()
         if prompt:
@@ -72,13 +72,13 @@ class ConfigRepository:
         return prompt
 
     # Functions
-    async def get_functions(self) -> List[Funcao]:
-        query = select(Funcao)
+    async def get_functions(self) -> List[FunctionDefinition]:
+        query = select(FunctionDefinition)
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def create_function(self, nome: str, descricao: str, parameters: dict, tipo: str) -> Funcao:
-        func = Funcao(nome=nome, descricao=descricao, parameters=parameters, tipo_tarefa=tipo)
+    async def create_function(self, nome: str, descricao: str, parameters: dict, tipo: str) -> FunctionDefinition:
+        func = FunctionDefinition(nome=nome, descricao=descricao, parameters=parameters, tipo_tarefa=tipo)
         self.db.add(func)
         await self.db.commit()
         await self.db.refresh(func)

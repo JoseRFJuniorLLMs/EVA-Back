@@ -1,47 +1,45 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import get_db
-from database.repositories.pagamento_repo import PagamentoRepository, AuditRepository
-from schemas import (
-    PagamentoResponse, PagamentoCreate, AuditLogResponse
-)
+from database.repositories.faturamento_repo import FaturamentoRepository
+from schemas import AssinaturaResponse, ConsumoResponse, MessageResponse
 from typing import List
 
 router = APIRouter()
 
+@router.get("/assinaturas", response_model=List[AssinaturaResponse])
+async def list_assinaturas(db: AsyncSession = Depends(get_db)):
+    repo = FaturamentoRepository(db)
+    return await repo.list_assinaturas()
 
-# --- Audit Logs ---
+@router.get("/assinaturas/{id}", response_model=AssinaturaResponse)
+async def get_assinatura(id: int, db: AsyncSession = Depends(get_db)):
+    repo = FaturamentoRepository(db)
+    assinatura = await repo.get_assinatura(id)
+    if not assinatura:
+        raise HTTPException(status_code=404, detail="Assinatura not found")
+    return assinatura
 
-@router.get("/audit-logs/", response_model=List[AuditLogResponse])
-async def list_audit_logs(usuario: str = None, limit: int = 50, db: AsyncSession = Depends(get_db)):
-    repo = AuditRepository(db)
-    return await repo.get_logs(limit=limit, usuario=usuario)
+@router.get("/consumo/{idoso_id}", response_model=ConsumoResponse)
+async def get_consumo(idoso_id: int, mes: int, ano: int, db: AsyncSession = Depends(get_db)):
+    repo = FaturamentoRepository(db)
+    consumo = await repo.get_consumo_mes(idoso_id, mes, ano)
+    if not consumo:
+         raise HTTPException(status_code=404, detail="Consumo not found for this period")
+    return consumo
 
-@router.get("/audit-logs/{id}", response_model=AuditLogResponse)
-async def get_audit_log(id: int, db: AsyncSession = Depends(get_db)):
-    repo = AuditRepository(db)
-    log = await repo.get_by_id(id)
-    if not log:
-        raise HTTPException(status_code=404, detail="Log not found")
-    return log
-
-# --- Pagamentos ---
-
-@router.get("/", response_model=List[PagamentoResponse])
-async def list_pagamentos(status: str = None, limit: int = 50, db: AsyncSession = Depends(get_db)):
-    repo = PagamentoRepository(db)
-    return await repo.get_pagamentos(limit=limit, status=status)
-
-@router.post("/", response_model=PagamentoResponse)
-async def create_pagamento(pagamento: PagamentoCreate, db: AsyncSession = Depends(get_db)):
-    repo = PagamentoRepository(db)
-    return await repo.create_pagamento(pagamento.model_dump())
-
-@router.get("/{id}", response_model=PagamentoResponse)
-async def get_pagamento(id: int, db: AsyncSession = Depends(get_db)):
-    repo = PagamentoRepository(db)
-    pag = await repo.get_by_id(id)
-    if not pag:
-        raise HTTPException(status_code=404, detail="Pagamento not found")
-    return pag
-
+@router.get("/audit", response_model=List[dict])
+async def list_audit_logs(db: AsyncSession = Depends(get_db)):
+    # Simple query for audit logs
+    from database.models import AuditLog
+    from sqlalchemy import select
+    query = select(AuditLog).order_by(AuditLog.criado_em.desc()).limit(100)
+    result = await db.execute(query)
+    return [
+        {
+            "id": log.id,
+            "usuario": log.usuario_email,
+            "acao": log.acao,
+            "data": log.criado_em
+        } for log in result.scalars().all()
+    ]

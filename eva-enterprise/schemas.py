@@ -1,6 +1,7 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional, Any, Dict
-from datetime import datetime
+from datetime import datetime, date
+from decimal import Decimal
 
 # --- Common ---
 class MessageResponse(BaseModel):
@@ -12,39 +13,43 @@ class ConfigCreate(BaseModel):
     valor: str
     tipo: str
     categoria: str
+    descricao: Optional[str] = None
+    ativa: bool = True
 
 class ConfigUpdate(BaseModel):
     valor: Optional[str] = None
     tipo: Optional[str] = None
     categoria: Optional[str] = None
+    ativa: Optional[bool] = None
 
 class ConfigResponse(ConfigCreate):
     id: int
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class PromptCreate(BaseModel):
     nome: str
     template: str
-    versao: str
+    versao: str = "v1"
+    tipo: str
     ativo: bool = True
+    descricao: Optional[str] = None
 
 class PromptResponse(PromptCreate):
     id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FuncaoCreate(BaseModel):
     nome: str
     descricao: str
-    parameters: Dict[str, Any]
+    parametros: Dict[str, Any]
     tipo_tarefa: str
+    handler_path: str
+    requires_confirmation: bool = False
 
 class FuncaoResponse(FuncaoCreate):
     id: int
-    class Config:
-        from_attributes = True
+    ativa: bool
+    model_config = ConfigDict(from_attributes=True)
 
 class CircuitBreakerResponse(BaseModel):
     id: int
@@ -52,34 +57,28 @@ class CircuitBreakerResponse(BaseModel):
     state: str
     failure_count: int
     last_failure_time: Optional[datetime]
-    class Config:
-        from_attributes = True
-
-class RateLimitUpdate(BaseModel):
-    limit_count: Optional[int]
-    interval_seconds: Optional[int]
+    model_config = ConfigDict(from_attributes=True)
 
 class RateLimitResponse(BaseModel):
     id: int
     endpoint: str
     limit_count: int
     interval_seconds: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Idosos & Related ---
 class IdosoBase(BaseModel):
     nome: str
     telefone: str
     cpf: Optional[str] = None
-    data_nascimento: Optional[str] = None
+    data_nascimento: date
     foto_url: Optional[str] = None
-    endereco: Optional[str] = None
     condicoes_medicas: Optional[str] = None
-    medicamentos_regulares: Optional[str] = None
     sentimento: Optional[str] = 'neutro'
     nivel_cognitivo: Optional[str] = 'normal'
     mobilidade: Optional[str] = 'independente'
+    tom_voz: str = "amigavel"
+    timezone: str = "America/Sao_Paulo"
 
 class IdosoCreate(IdosoBase):
     pass
@@ -88,11 +87,9 @@ class IdosoUpdate(BaseModel):
     nome: Optional[str] = None
     telefone: Optional[str] = None
     cpf: Optional[str] = None
-    data_nascimento: Optional[str] = None
+    data_nascimento: Optional[date] = None
     foto_url: Optional[str] = None
-    endereco: Optional[str] = None
     condicoes_medicas: Optional[str] = None
-    medicamentos_regulares: Optional[str] = None
     sentimento: Optional[str] = None
     nivel_cognitivo: Optional[str] = None
     mobilidade: Optional[str] = None
@@ -102,208 +99,185 @@ class IdosoResponse(IdosoBase):
     agendamentos_pendentes: int = 0
     criado_em: datetime
     
-    # Computed field for frontend compatibility (foto is alias for foto_url)
-    @property
-    def foto(self) -> Optional[str]:
-        return self.foto_url
-    
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class FamiliarBase(BaseModel):
     nome: str
-    parentesco: Optional[str] = None
+    parentesco: str
     telefone: str
-    email: Optional[str] = None
-    eh_responsavel: bool = False
+    is_responsavel: bool = False
 
 class FamiliarCreate(FamiliarBase):
     pass
 
-class FamiliarUpdate(BaseModel):
-    nome: Optional[str] = None
-    parentesco: Optional[str] = None
-    telefone: Optional[str] = None
-    email: Optional[str] = None
-    eh_responsavel: Optional[bool] = None
-
 class FamiliarResponse(FamiliarBase):
     id: int
     idoso_id: int
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class LegadoDigitalCreate(BaseModel):
-    titulo: Optional[str] = None
-    tipo_midia: Optional[str] = None
-    url_arquivo: Optional[str] = None
-    descricao: Optional[str] = None
+    titulo: str
+    tipo: str
+    url_midia: str
+    destinatario: Optional[str] = None
 
 class LegadoDigitalResponse(LegadoDigitalCreate):
     id: int
     idoso_id: int
     criado_em: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+
+# --- Perfil e Memória ---
+class PerfilClinicoBase(BaseModel):
+    tipo_sanguineo: Optional[str] = None
+    alergias: Optional[str] = None
+    restricoes_locomocao: Optional[str] = None
+    doencas_cronicas: Optional[str] = None
+
+class PerfilClinicoResponse(PerfilClinicoBase):
+    idoso_id: int
+    model_config = ConfigDict(from_attributes=True)
+
+class MemoriaBase(BaseModel):
+    categoria: str
+    chave: str
+    valor: str
+    relevancia: str = "media"
+
+class MemoriaResponse(MemoriaBase):
+    id: int
+    idoso_id: int
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Medicamentos & Saude ---
 class MedicamentoBase(BaseModel):
     nome: str
     dosagem: Optional[str] = None
-    horarios: Optional[List[str]] = None
+    horarios: List[str] = []
     ativo: bool = True
 
 class MedicamentoCreate(MedicamentoBase):
     idoso_id: int
 
-class MedicamentoUpdate(BaseModel):
-    nome: Optional[str] = None
-    dosagem: Optional[str] = None
-    horarios: Optional[List[str]] = None
-    ativo: Optional[bool] = None
-
 class MedicamentoResponse(MedicamentoBase):
     id: int
     idoso_id: int
-    criado_em: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SinaisVitaisCreate(BaseModel):
     idoso_id: int
     tipo: str
     valor: str
-    unidade: str
+    unidade: Optional[str] = None
     observacao: Optional[str] = None
 
 class SinaisVitaisResponse(SinaisVitaisCreate):
     id: int
     data_medicao: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Agendamentos & Calls ---
 class AgendamentoBase(BaseModel):
     idoso_id: int
-    nome_idoso: Optional[str] = None
-    telefone: Optional[str] = None
-    horario: datetime
-    remedios: Optional[str] = None
-    status: str = "pendente"
+    tipo: str
+    data_hora_agendada: datetime
+    status: str = "agendado"
+    prioridade: str = "normal"
 
 class AgendamentoCreate(AgendamentoBase):
-    pass
-
-class AgendamentoUpdate(BaseModel):
-    horario: Optional[datetime] = None
-    status: Optional[str] = None
-    remedios: Optional[str] = None
+    dados_tarefa: Dict[str, Any] = {}
 
 class AgendamentoResponse(AgendamentoBase):
     id: int
     tentativas_realizadas: int
     proxima_tentativa: Optional[datetime]
-    class Config:
-        from_attributes = True
-
-class MakeCallRequest(BaseModel):
-    telephone: str
+    model_config = ConfigDict(from_attributes=True)
 
 class HistoricoResponse(BaseModel):
     id: int
+    idoso_id: int
     agendamento_id: Optional[int]
-    idoso_id: Optional[int]
-    evento: str
-    status: str
-    detalhe: Optional[str]
-    inicio: Optional[datetime]
-    fim: Optional[datetime]
-    class Config:
-        from_attributes = True
-
-class StatusUpdate(BaseModel):
-    call_sid: str
-    status: str
+    inicio_chamada: datetime
+    fim_chamada: Optional[datetime]
+    transcricao_resumo: Optional[str]
+    sentimento_geral: Optional[str]
+    tarefa_concluida: bool
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Alertas & Insights ---
 class AlertaCreate(BaseModel):
+    idoso_id: int
     tipo: str
-    descricao: str
-    status: str = "ativo"
+    severidade: str
+    mensagem: str
+    destinatarios: List[str] = []
 
 class AlertaResponse(AlertaCreate):
     id: int
     criado_em: datetime
-    class Config:
-        from_attributes = True
+    resolvido: bool
+    model_config = ConfigDict(from_attributes=True)
 
 class PsicologiaInsightResponse(BaseModel):
     id: int
     idoso_id: int
-    conteudo: str
-    data_geracao: datetime
-    relevancia: int
-    class Config:
-        from_attributes = True
+    tipo: str
+    mensagem: str
+    data_insight: datetime
+    relevancia: str
+    model_config = ConfigDict(from_attributes=True)
 
 class TopicoAfetivoResponse(BaseModel):
     id: int
     idoso_id: int
     topico: str
     frequencia: int
+    sentimento_associado: Optional[str] = None
     ultima_mencao: datetime
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
-class InsightGenerate(BaseModel):
-    idoso_id: int
-    contexto: Optional[str] = None
-
-# --- Pagamentos & Audit ---
-class PagamentoCreate(BaseModel):
-    descricao: str
-    valor: float
-    metodo: str
+# --- Faturamento ---
+class AssinaturaResponse(BaseModel):
+    id: int
+    entidade_nome: str
     status: str
+    plano_id: str
+    data_proxima_cobranca: Optional[date]
+    limite_minutos: int
+    minutos_consumidos: int
+    model_config = ConfigDict(from_attributes=True)
 
-class PagamentoResponse(PagamentoCreate):
-    id: int
-    data: datetime
-    class Config:
-        from_attributes = True
-
-class AuditLogResponse(BaseModel):
-    id: int
-    acao: Optional[str] = None
-    usuario: Optional[str] = "Sistema"
-    detalhes: Optional[Dict[str, Any]] = None
-    data: datetime
-    class Config:
-        from_attributes = True
+class ConsumoResponse(BaseModel):
+    idoso_id: int
+    mes_referencia: int
+    ano_referencia: int
+    total_tokens: int
+    total_minutos: int
+    custo_total_estimado: Decimal
+    model_config = ConfigDict(from_attributes=True)
 
 # --- Orchestrator ---
-class FlowStepCreate(BaseModel):
-    delay: int
+class ProtocoloEtapaCreate(BaseModel):
+    ordem: int
     acao: str
-    vezes: int = 1
-    contato: Optional[str] = None
-    status: str = "Ativo"
+    delay_minutos: int = 5
+    tentativas: int = 1
+    contato_alvo: Optional[str] = None
 
-class FlowStepResponse(FlowStepCreate):
+class ProtocoloEtapaResponse(ProtocoloEtapaCreate):
     id: int
-    flow_id: int
-    class Config:
-        from_attributes = True
+    protocolo_id: int
+    model_config = ConfigDict(from_attributes=True)
 
-class FlowCreate(BaseModel):
+class ProtocoloCreate(BaseModel):
     idoso_id: int
     nome: str
-    etapas: List[FlowStepCreate]
+    etapas: List[ProtocoloEtapaCreate]
 
-class FlowResponse(BaseModel):
+class ProtocoloResponse(BaseModel):
     id: int
     idoso_id: int
     nome: str
-    etapas: List[FlowStepResponse]
-    class Config:
-        from_attributes = True
+    ativo: bool
+    etapas: List[ProtocoloEtapaResponse]
+    model_config = ConfigDict(from_attributes=True)

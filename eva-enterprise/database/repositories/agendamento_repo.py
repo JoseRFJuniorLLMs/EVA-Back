@@ -17,7 +17,7 @@ class AgendamentoRepository:
         query = select(Agendamento)
         if idoso_id:
             query = query.filter(Agendamento.idoso_id == idoso_id)
-        result = await self.db.execute(query.order_by(Agendamento.horario.desc()).offset(skip).limit(limit))
+        result = await self.db.execute(query.order_by(Agendamento.data_hora_agendada.desc()).offset(skip).limit(limit))
         return result.scalars().all()
 
     async def create(self, dados: dict) -> Agendamento:
@@ -56,8 +56,8 @@ class AgendamentoRepository:
     async def get_pending_calls(self) -> List[Agendamento]:
         now = datetime.datetime.now()
         query = select(Agendamento).filter(
-            Agendamento.status == 'pendente',
-            Agendamento.horario <= now
+            Agendamento.status.in_(['agendado', 'aguardando_retry']),
+            Agendamento.data_hora_agendada <= now
         )
         result = await self.db.execute(query)
         return result.scalars().all()

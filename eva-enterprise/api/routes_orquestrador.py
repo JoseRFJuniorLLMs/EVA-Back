@@ -1,53 +1,39 @@
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from database.connection import get_db
+from database.repositories.protocolo_repo import ProtocoloRepository
+from schemas import ProtocoloResponse, ProtocoloCreate, MessageResponse
 from typing import List
-from schemas import FlowResponse, FlowCreate, FlowStepResponse
-from datetime import datetime
 
 router = APIRouter()
 
-# --- Mock Database for Flows ---
-# In a real scenario, this would be in a database table called 'workflows'
-MOCK_FLOWS = [
-    {
-        "id": 1,
-        "idoso_id": 1,
-        "nome": "Protocolo de Queda",
-        "etapas": [
-            {"id": 101, "flow_id": 1, "delay": 0, "acao": "NOTIFY_WA", "vezes": 1, "contato": "Filha (Maria)", "status": "Ativo"},
-            {"id": 102, "flow_id": 1, "delay": 2, "acao": "RETRY", "vezes": 3, "contato": None, "status": "Ativo"},
-            {"id": 103, "flow_id": 1, "delay": 5, "acao": "NOTIFY_SMS", "vezes": 1, "contato": "Emergência", "status": "Pendente"}
-        ]
-    }
-]
+@router.get("/{idoso_id}", response_model=ProtocoloResponse)
+async def get_active_protocol(idoso_id: int, db: AsyncSession = Depends(get_db)):
+    repo = ProtocoloRepository(db)
+    protocolo = await repo.get_active_protocol(idoso_id)
+    if not protocolo:
+        raise HTTPException(status_code=404, detail="No active protocol found for this elder")
+    return protocolo
 
-@router.get("/{idoso_id}", response_model=FlowResponse)
-async def get_flow(idoso_id: int):
-    # Find active flow for idoso
-    flow = next((f for f in MOCK_FLOWS if f["idoso_id"] == idoso_id), None)
-    if not flow:
-        return {
-            "id": 0,
-            "idoso_id": idoso_id,
-            "nome": "Nenhum protocolo ativo",
-            "etapas": []
-        }
-    return flow
-
-@router.post("/", response_model=FlowResponse)
-async def create_flow(flow_data: FlowCreate):
-    new_id = len(MOCK_FLOWS) + 1
-    new_flow = {
-        "id": new_id,
-        "idoso_id": flow_data.idoso_id,
-        "nome": flow_data.nome,
-        "etapas": []
-    }
+@router.post("/", response_model=ProtocoloResponse)
+async def create_protocol(data: ProtocoloCreate, db: AsyncSession = Depends(get_db)):
+    repo = ProtocoloRepository(db)
+    # Create protocol
+    protocolo = await repo.create_protocolo(data.idoso_id, data.nome)
+    # Add steps
+    for etapa_data in data.etapas:
+        await repo.add_etapa(protocolo.id, etapa_data.model_dump())
     
-    for idx, step in enumerate(flow_data.etapas):
-        new_step = step.model_dump()
-        new_step["id"] = int(f"{new_id}{idx}")
-        new_step["flow_id"] = new_id
-        new_flow["etapas"].append(new_step)
-        
-    MOCK_FLOWS.append(new_flow)
-    return new_flow
+    await db.refresh(protocolo)
+    return protocolo
+
+@router.delete("/{protocolo_id}")
+async def delete_protocolo(protocolo_id: int, db: AsyncSession = Depends(get_db)):
+    # Simple delete (could be a soft delete or repository implementation)
+    from database.models import ProtocoloAlerta
+    from sqlalchemy import delete
+    
+    query = delete(ProtocoloAlerta).where(ProtocoloAlerta.id == protocolo_id)
+    await db.execute(query)
+    await db.commit()
+    return {"message": "Protocol deleted"}

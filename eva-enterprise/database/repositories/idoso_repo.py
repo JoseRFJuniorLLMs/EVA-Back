@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete, update
-from ..models import Idoso, Familiar, LegadoDigital
+from ..models import Idoso, MembroFamilia, LegadoDigital
 from typing import List, Optional
 
 class IdosoRepository:
@@ -55,20 +55,20 @@ class IdosoRepository:
         return False
 
     # Familiares
-    async def get_familiares(self, idoso_id: int) -> List[Familiar]:
-        query = select(Familiar).filter(Familiar.idoso_id == idoso_id)
+    async def get_familiares(self, idoso_id: int) -> List[MembroFamilia]:
+        query = select(MembroFamilia).filter(MembroFamilia.idoso_id == idoso_id)
         result = await self.db.execute(query)
         return result.scalars().all()
 
-    async def add_familiar(self, idoso_id: int, dados: dict) -> Familiar:
-        familiar = Familiar(idoso_id=idoso_id, **dados)
+    async def add_familiar(self, idoso_id: int, dados: dict) -> MembroFamilia:
+        familiar = MembroFamilia(idoso_id=idoso_id, **dados)
         self.db.add(familiar)
         await self.db.commit()
         await self.db.refresh(familiar)
         return familiar
 
-    async def update_familiar(self, familiar_id: int, dados: dict) -> Optional[Familiar]:
-        query = select(Familiar).filter(Familiar.id == familiar_id)
+    async def update_familiar(self, familiar_id: int, dados: dict) -> Optional[MembroFamilia]:
+        query = select(MembroFamilia).filter(MembroFamilia.id == familiar_id)
         result = await self.db.execute(query)
         familiar = result.scalar_one_or_none()
         if familiar:
