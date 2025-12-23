@@ -1,13 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import get_db
 from database.repositories.config_repo import ConfigRepository
-from schemas import (
-    ConfigResponse, ConfigCreate, ConfigUpdate,
-    PromptResponse, PromptCreate,
-    FuncaoResponse, FuncaoCreate,
-    CircuitBreakerResponse, RateLimitResponse, RateLimitUpdate
-)
 from typing import List
 
 router = APIRouter()
@@ -15,71 +9,69 @@ router = APIRouter()
 
 # --- Prompts ---
 
-@router.get("/prompts/", response_model=List[PromptResponse])
-def list_prompts(db: Session = Depends(get_db)):
+@router.get("/prompts/", response_model=List[dict])
+async def list_prompts(db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.get_prompts()
+    return await repo.get_prompts()
 
-@router.post("/prompts/", response_model=PromptResponse)
-def create_prompt(prompt: PromptCreate, db: Session = Depends(get_db)):
+@router.post("/prompts/", response_model=dict)
+async def create_prompt(nome: str, template: str, versao: str, db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.create_prompt(prompt.nome, prompt.template, prompt.versao)
+    return await repo.create_prompt(nome, template, versao)
 
-@router.put("/prompts/{id}", response_model=PromptResponse)
-def update_prompt(id: int, prompt_update: dict, db: Session = Depends(get_db)):
+@router.put("/prompts/{id}", response_model=dict)
+async def update_prompt(id: int, prompt_update: dict, db: AsyncSession = Depends(get_db)):
     # Assuming partial update for version/template
     repo = ConfigRepository(db)
-    updated = repo.update_prompt(id, prompt_update)
+    updated = await repo.update_prompt(id, prompt_update)
     if not updated:
         raise HTTPException(status_code=404, detail="Prompt not found")
     return updated
 
-# --- Funcoes ---
+# --- Functions ---
 
-@router.get("/funcoes/", response_model=List[FuncaoResponse])
-def list_functions(db: Session = Depends(get_db)):
+@router.get("/functions/", response_model=List[dict])
+async def list_functions(db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.get_functions()
+    return await repo.get_functions()
 
-@router.post("/funcoes/", response_model=FuncaoResponse)
-def create_function(func: FuncaoCreate, db: Session = Depends(get_db)):
+@router.post("/functions/", response_model=dict)
+async def create_function(nome: str, descricao: str, parameters: dict, tipo: str, db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.create_function(func.nome, func.descricao, func.parameters, func.tipo_tarefa)
+    return await repo.create_function(nome, descricao, parameters, tipo)
 
 # --- Circuit Breakers ---
 
-@router.get("/circuit-breakers", response_model=List[CircuitBreakerResponse])
-def list_circuit_breakers(db: Session = Depends(get_db)):
+@router.get("/circuit-breakers/", response_model=List[dict])
+async def list_circuit_breakers(db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.get_circuit_breakers()
+    return await repo.get_circuit_breakers()
 
-@router.post("/circuit-breakers/reset/{id}", response_model=CircuitBreakerResponse)
-def reset_circuit_breaker(id: int, db: Session = Depends(get_db)):
+@router.post("/circuit-breakers/{id}/reset", response_model=dict)
+async def reset_circuit_breaker(id: int, db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    cb = repo.reset_circuit_breaker(id)
+    cb = await repo.reset_circuit_breaker(id)
     if not cb:
-        raise HTTPException(status_code=404, detail="Circuit Breaker not found")
+        raise HTTPException(status_code=404, detail="Circuit breaker not found")
     return cb
 
 # --- Rate Limits ---
 
-@router.get("/rate-limits", response_model=List[RateLimitResponse])
-def list_rate_limits(db: Session = Depends(get_db)):
+@router.get("/rate-limits/", response_model=List[dict])
+async def list_rate_limits(db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    return repo.get_rate_limits()
+    return await repo.get_rate_limits()
 
-@router.put("/rate-limits/{id}", response_model=RateLimitResponse)
-def update_rate_limit(id: int, limit: RateLimitUpdate, db: Session = Depends(get_db)):
+@router.put("/rate-limits/{id}", response_model=dict)
+async def update_rate_limit(id: int, limit: int, interval: int, db: AsyncSession = Depends(get_db)):
     repo = ConfigRepository(db)
-    updated = repo.update_rate_limit(id, limit.limit_count, limit.interval_seconds)
+    updated = await repo.update_rate_limit(id, limit, interval)
     if not updated:
-        raise HTTPException(status_code=404, detail="Rate Limit not found")
+        raise HTTPException(status_code=404, detail="Rate limit not found")
     return updated
 
 # --- Configurations (Dynamic Routes Last) ---
 
-@router.get("/", response_model=List[ConfigResponse])
-def list_configs(db: Session = Depends(get_db)):
     repo = ConfigRepository(db)
     return repo.get_all_configs()
 

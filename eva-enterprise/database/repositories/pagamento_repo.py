@@ -1,44 +1,51 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from ..models import Pagamento, AuditLog
 from typing import List, Optional
 import datetime
 
 class PagamentoRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_pagamentos(self, limit: int = 50, status: str = None) -> List[Pagamento]:
-        query = self.db.query(Pagamento)
+    async def get_pagamentos(self, limit: int = 50, status: str = None) -> List[Pagamento]:
+        query = select(Pagamento)
         if status:
             query = query.filter(Pagamento.status == status)
-        return query.order_by(Pagamento.data.desc()).limit(limit).all()
+        result = await self.db.execute(query.order_by(Pagamento.data.desc()).limit(limit))
+        return result.scalars().all()
 
-    def create_pagamento(self, dados: dict) -> Pagamento:
+    async def create_pagamento(self, dados: dict) -> Pagamento:
         pagamento = Pagamento(**dados)
         self.db.add(pagamento)
-        self.db.commit()
-        self.db.refresh(pagamento)
+        await self.db.commit()
+        await self.db.refresh(pagamento)
         return pagamento
 
-    def get_by_id(self, id: int) -> Optional[Pagamento]:
-        return self.db.query(Pagamento).filter(Pagamento.id == id).first()
+    async def get_by_id(self, id: int) -> Optional[Pagamento]:
+        query = select(Pagamento).filter(Pagamento.id == id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
 
 class AuditRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def log_action(self, acao: str, usuario: str, detalhes: dict) -> AuditLog:
+    async def log_action(self, acao: str, usuario: str, detalhes: dict) -> AuditLog:
         log = AuditLog(acao=acao, usuario=usuario, detalhes=detalhes)
         self.db.add(log)
-        self.db.commit()
-        self.db.refresh(log)
+        await self.db.commit()
+        await self.db.refresh(log)
         return log
 
-    def get_logs(self, limit: int = 100, usuario: str = None) -> List[AuditLog]:
-        query = self.db.query(AuditLog)
+    async def get_logs(self, limit: int = 100, usuario: str = None) -> List[AuditLog]:
+        query = select(AuditLog)
         if usuario:
             query = query.filter(AuditLog.usuario == usuario)
-        return query.order_by(AuditLog.data.desc()).limit(limit).all()
+        result = await self.db.execute(query.order_by(AuditLog.data.desc()).limit(limit))
+        return result.scalars().all()
 
-    def get_by_id(self, id: int) -> Optional[AuditLog]:
-        return self.db.query(AuditLog).filter(AuditLog.id == id).first()
+    async def get_by_id(self, id: int) -> Optional[AuditLog]:
+        query = select(AuditLog).filter(AuditLog.id == id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()

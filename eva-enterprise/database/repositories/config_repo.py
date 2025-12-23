@@ -1,96 +1,119 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 from ..models import Configuracao, Prompt, Funcao, CircuitBreakerState, RateLimit
 from typing import List, Optional
 
 class ConfigRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_all_configs(self) -> List[Configuracao]:
-        return self.db.query(Configuracao).all()
+    async def get_all_configs(self) -> List[Configuracao]:
+        query = select(Configuracao)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
-    def get_config_by_key(self, key: str) -> Optional[Configuracao]:
-        return self.db.query(Configuracao).filter(Configuracao.chave == key).first()
+    async def get_config_by_key(self, key: str) -> Optional[Configuracao]:
+        query = select(Configuracao).filter(Configuracao.chave == key)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
 
-    def create_config(self, key: str, value: str, tipo: str, category: str) -> Configuracao:
+    async def create_config(self, key: str, value: str, tipo: str, category: str) -> Configuracao:
         config = Configuracao(chave=key, valor=value, tipo=tipo, categoria=category)
         self.db.add(config)
-        self.db.commit()
-        self.db.refresh(config)
+        await self.db.commit()
+        await self.db.refresh(config)
         return config
 
-    def update_config(self, id: int, updates: dict) -> Optional[Configuracao]:
-        config = self.db.query(Configuracao).filter(Configuracao.id == id).first()
+    async def update_config(self, id: int, updates: dict) -> Optional[Configuracao]:
+        query = select(Configuracao).filter(Configuracao.id == id)
+        result = await self.db.execute(query)
+        config = result.scalar_one_or_none()
         if config:
             for k, v in updates.items():
                 if v is not None:
                     setattr(config, k, v)
-            self.db.commit()
-            self.db.refresh(config)
+            await self.db.commit()
+            await self.db.refresh(config)
         return config
 
-    def delete_config(self, id: int) -> bool:
-        config = self.db.query(Configuracao).filter(Configuracao.id == id).first()
+    async def delete_config(self, id: int) -> bool:
+        query = select(Configuracao).filter(Configuracao.id == id)
+        result = await self.db.execute(query)
+        config = result.scalar_one_or_none()
         if config:
-            self.db.delete(config)
-            self.db.commit()
+            await self.db.delete(config)
+            await self.db.commit()
             return True
         return False
 
     # Prompts
-    def get_prompts(self) -> List[Prompt]:
-        return self.db.query(Prompt).all()
+    async def get_prompts(self) -> List[Prompt]:
+        query = select(Prompt)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
-    def create_prompt(self, nome: str, template: str, versao: str) -> Prompt:
+    async def create_prompt(self, nome: str, template: str, versao: str) -> Prompt:
         prompt = Prompt(nome=nome, template=template, versao=versao)
         self.db.add(prompt)
-        self.db.commit()
-        self.db.refresh(prompt)
+        await self.db.commit()
+        await self.db.refresh(prompt)
         return prompt
 
-    def update_prompt(self, id: int, updates: dict) -> Optional[Prompt]:
-        prompt = self.db.query(Prompt).filter(Prompt.id == id).first()
+    async def update_prompt(self, id: int, updates: dict) -> Optional[Prompt]:
+        query = select(Prompt).filter(Prompt.id == id)
+        result = await self.db.execute(query)
+        prompt = result.scalar_one_or_none()
         if prompt:
             for k, v in updates.items():
                 if v is not None:
                     setattr(prompt, k, v)
-            self.db.commit()
-            self.db.refresh(prompt)
+            await self.db.commit()
+            await self.db.refresh(prompt)
         return prompt
 
     # Functions
-    def get_functions(self) -> List[Funcao]:
-        return self.db.query(Funcao).all()
+    async def get_functions(self) -> List[Funcao]:
+        query = select(Funcao)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
-    def create_function(self, nome: str, descricao: str, parameters: dict, tipo: str) -> Funcao:
+    async def create_function(self, nome: str, descricao: str, parameters: dict, tipo: str) -> Funcao:
         func = Funcao(nome=nome, descricao=descricao, parameters=parameters, tipo_tarefa=tipo)
         self.db.add(func)
-        self.db.commit()
-        self.db.refresh(func)
+        await self.db.commit()
+        await self.db.refresh(func)
         return func
 
     # Circuit Breakers
-    def get_circuit_breakers(self) -> List[CircuitBreakerState]:
-        return self.db.query(CircuitBreakerState).all()
+    async def get_circuit_breakers(self) -> List[CircuitBreakerState]:
+        query = select(CircuitBreakerState)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
-    def reset_circuit_breaker(self, id: int) -> Optional[CircuitBreakerState]:
-        cb = self.db.query(CircuitBreakerState).filter(CircuitBreakerState.id == id).first()
+    async def reset_circuit_breaker(self, id: int) -> Optional[CircuitBreakerState]:
+        query = select(CircuitBreakerState).filter(CircuitBreakerState.id == id)
+        result = await self.db.execute(query)
+        cb = result.scalar_one_or_none()
         if cb:
             cb.state = 'closed'
             cb.failure_count = 0
-            self.db.commit()
-            self.db.refresh(cb)
+            await self.db.commit()
+            await self.db.refresh(cb)
         return cb
 
     # Rate Limits
-    def get_rate_limits(self) -> List[RateLimit]:
-        return self.db.query(RateLimit).all()
+    async def get_rate_limits(self) -> List[RateLimit]:
+        query = select(RateLimit)
+        result = await self.db.execute(query)
+        return result.scalars().all()
 
-    def update_rate_limit(self, id: int, limit: int, interval: int) -> Optional[RateLimit]:
-        rl = self.db.query(RateLimit).filter(RateLimit.id == id).first()
+    async def update_rate_limit(self, id: int, limit: int, interval: int) -> Optional[RateLimit]:
+        query = select(RateLimit).filter(RateLimit.id == id)
+        result = await self.db.execute(query)
+        rl = result.scalar_one_or_none()
         if rl:
             rl.limit_count = limit
             rl.interval_seconds = interval
-            self.db.commit()
-            self.db.refresh(rl)
+            await self.db.commit()
+            await self.db.refresh(rl)
         return rl

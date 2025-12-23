@@ -21,12 +21,10 @@ MOCK_FLOWS = [
 ]
 
 @router.get("/{idoso_id}", response_model=FlowResponse)
-def get_flow(idoso_id: int):
+async def get_flow(idoso_id: int):
     # Find active flow for idoso
     flow = next((f for f in MOCK_FLOWS if f["idoso_id"] == idoso_id), None)
     if not flow:
-        # Return a default empty/template flow if none exists, or 404
-        # Frontend expects a flow object
         return {
             "id": 0,
             "idoso_id": idoso_id,
@@ -36,7 +34,7 @@ def get_flow(idoso_id: int):
     return flow
 
 @router.post("/", response_model=FlowResponse)
-def create_flow(flow_data: FlowCreate):
+async def create_flow(flow_data: FlowCreate):
     new_id = len(MOCK_FLOWS) + 1
     new_flow = {
         "id": new_id,
@@ -45,7 +43,6 @@ def create_flow(flow_data: FlowCreate):
         "etapas": []
     }
     
-    # Process steps
     for idx, step in enumerate(flow_data.etapas):
         new_step = step.model_dump()
         new_step["id"] = int(f"{new_id}{idx}")

@@ -1,32 +1,31 @@
-from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
+from sqlalchemy.orm import sessionmaker, declarative_base
 
 import os
 from dotenv import load_dotenv
 
 load_dotenv()
 
-# Usa variável de ambiente ou fallback (apenas se não houver env)
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./eva_saude.db")
+# Usa variável de ambiente ou fallback
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:Debian23%40@34.89.62.186:5432/eva")
 
-# Ajusta string de conexão se for Postgres
+# Ajusta string de conexão para garantir asyncpg
 if DATABASE_URL:
     if DATABASE_URL.startswith("postgres://"):
-        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
-    if "+asyncpg" in DATABASE_URL:
-        DATABASE_URL = DATABASE_URL.replace("+asyncpg", "", 1)
+        DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+asyncpg://", 1)
+    elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-print(f"🔌 Conectando ao banco de dados: {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'SQLite/Local'}")
+print(f"🔌 Conectando ao banco de dados (ASYNC): {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Local'}")
 
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+engine = create_async_engine(DATABASE_URL, echo=False)
+AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()
 
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    async with AsyncSessionLocal() as session:
+        try:
+            yield session
+        finally:
+            await session.close()

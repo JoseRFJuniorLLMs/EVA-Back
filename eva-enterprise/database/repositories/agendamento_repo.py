@@ -1,56 +1,63 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete, update
 from ..models import Agendamento, Idoso
 from typing import List, Optional
 import datetime
 
 class AgendamentoRepository:
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
 
-    def get_by_id(self, agendamento_id: int) -> Optional[Agendamento]:
-        return self.db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+    async def get_by_id(self, agendamento_id: int) -> Optional[Agendamento]:
+        query = select(Agendamento).filter(Agendamento.id == agendamento_id)
+        result = await self.db.execute(query)
+        return result.scalar_one_or_none()
 
-    def get_all(self, skip: int = 0, limit: int = 100, idoso_id: int = None) -> List[Agendamento]:
-        query = self.db.query(Agendamento)
+    async def get_all(self, skip: int = 0, limit: int = 100, idoso_id: int = None) -> List[Agendamento]:
+        query = select(Agendamento)
         if idoso_id:
             query = query.filter(Agendamento.idoso_id == idoso_id)
-        return query.order_by(Agendamento.horario.desc()).offset(skip).limit(limit).all()
+        result = await self.db.execute(query.order_by(Agendamento.horario.desc()).offset(skip).limit(limit))
+        return result.scalars().all()
 
-    def create(self, dados: dict) -> Agendamento:
+    async def create(self, dados: dict) -> Agendamento:
         agendamento = Agendamento(**dados)
         self.db.add(agendamento)
-        self.db.commit()
-        self.db.refresh(agendamento)
+        await self.db.commit()
+        await self.db.refresh(agendamento)
         return agendamento
 
-    def update(self, id: int, dados: dict) -> Optional[Agendamento]:
-        agendamento = self.get_by_id(id)
+    async def update(self, id: int, dados: dict) -> Optional[Agendamento]:
+        agendamento = await self.get_by_id(id)
         if agendamento:
             for k, v in dados.items():
                 if v is not None:
                     setattr(agendamento, k, v)
-            self.db.commit()
-            self.db.refresh(agendamento)
+            await self.db.commit()
+            await self.db.refresh(agendamento)
         return agendamento
 
-    def delete(self, id: int) -> bool:
-        agendamento = self.get_by_id(id)
+    async def delete(self, id: int) -> bool:
+        agendamento = await self.get_by_id(id)
         if agendamento:
-            self.db.delete(agendamento)
-            self.db.commit()
+            await self.db.delete(agendamento)
+            await self.db.commit()
             return True
         return False
 
-    def update_status(self, agendamento_id: int, status: str) -> Optional[Agendamento]:
-        return self.update(agendamento_id, {'status': status})
+    async def update_status(self, agendamento_id: int, status: str) -> Optional[Agendamento]:
+        return await self.update(agendamento_id, {'status': status})
 
-    def get_details_with_idoso(self, agendamento_id: int):
-        return self.db.query(Agendamento, Idoso).join(Idoso).filter(Agendamento.id == agendamento_id).first()
+    async def get_details_with_idoso(self, agendamento_id: int):
+        query = select(Agendamento, Idoso).join(Idoso).filter(Agendamento.id == agendamento_id)
+        result = await self.db.execute(query)
+        return result.first()
 
-    def get_pending_calls(self) -> List[Agendamento]:
-        # Logic to find pending calls that are due
+    async def get_pending_calls(self) -> List[Agendamento]:
         now = datetime.datetime.now()
-        return self.db.query(Agendamento).filter(
+        query = select(Agendamento).filter(
             Agendamento.status == 'pendente',
             Agendamento.horario <= now
-        ).all()
+        )
+        result = await self.db.execute(query)
+        return result.scalars().all()

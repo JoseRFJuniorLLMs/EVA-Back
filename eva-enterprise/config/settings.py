@@ -3,31 +3,34 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-class Settings:
-    PORT = int(os.getenv("PORT", "8080"))
-    SERVICE_DOMAIN = os.getenv("SERVICE_DOMAIN")
-    GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-    
-    TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID")
-    TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN")
-    TWILIO_PHONE_NUMBER = os.getenv("TWILIO_PHONE_NUMBER")
-    
-    MODEL_ID = "gemini-2.5-flash-native-audio-preview-12-2025"
 
-    # Configurações adicionais
+class Settings:
+    """Configurações da aplicação"""
+    # Server
+    PORT = int(os.getenv("PORT", "8080"))
+    ENVIRONMENT = os.getenv("ENVIRONMENT", "development")
+    
+    # Database
     DATABASE_URL = os.getenv("DATABASE_URL")
-    MAX_CONCURRENT_CALLS = int(os.getenv("MAX_CONCURRENT_CALLS", "10"))
-    CIRCUIT_BREAKER_THRESHOLD = int(os.getenv("CIRCUIT_BREAKER_THRESHOLD", "5"))
+    
+    # API Limits
+    MAX_CONCURRENT_REQUESTS = int(os.getenv("MAX_CONCURRENT_REQUESTS", "100"))
     RATE_LIMIT_PER_MINUTE = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+    
+    # Security
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here")
+    ALGORITHM = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
+
 
 settings = Settings()
 
 
 class DynamicConfig:
     """Configurações dinâmicas carregadas do banco de dados com cache."""
-    _cache = {}  # Cache em memória para evitar DB hit a cada chamada
-    _cache_ttl = 60  # Recarrega configs a cada 60s
-    _cache_timestamps = {}  # Timestamps de quando cada key foi cacheada
+    _cache = {}
+    _cache_ttl = 60
+    _cache_timestamps = {}
     
     def _is_expired(self, key: str) -> bool:
         """Verifica se o cache da key expirou."""
@@ -37,17 +40,49 @@ class DynamicConfig:
         return (time.time() - self._cache_timestamps[key]) > self._cache_ttl
     
     async def get(self, key: str, default=None):
-        """Busca configuração do banco de dados."""
+        """
+        Busca configuração do banco de dados.
+        
+        Args:
+            key: Chave da configuração
+            default: Valor padrão caso não encontre
+            
+        Returns:
+            Valor da configuração ou default
+        """
         # TODO: Implementar busca real no banco (tabela configuracoes_sistema)
         return default
     
     async def get_cached(self, key: str, default=None):
-        """Usa cache com TTL para não sobrecarregar banco."""
+        """
+        Usa cache com TTL para não sobrecarregar banco.
+        
+        Args:
+            key: Chave da configuração
+            default: Valor padrão caso não encontre
+            
+        Returns:
+            Valor da configuração (cacheado) ou default
+        """
         import time
         if key not in self._cache or self._is_expired(key):
             self._cache[key] = await self.get(key, default)
             self._cache_timestamps[key] = time.time()
         return self._cache[key]
+    
+    def clear_cache(self, key: str = None):
+        """
+        Limpa cache de uma key específica ou todo o cache.
+        
+        Args:
+            key: Chave específica para limpar (None limpa tudo)
+        """
+        if key:
+            self._cache.pop(key, None)
+            self._cache_timestamps.pop(key, None)
+        else:
+            self._cache.clear()
+            self._cache_timestamps.clear()
 
 
 dynamic_config = DynamicConfig()

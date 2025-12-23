@@ -1,47 +1,56 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import get_db
 from database.repositories.medicamento_repo import MedicamentoRepository, SinaisVitaisRepository
-from schemas import (
-    MedicamentoResponse, MedicamentoCreate, MedicamentoUpdate,
-    SinaisVitaisResponse, SinaisVitaisCreate
-)
 from typing import List
+from pydantic import BaseModel
+from datetime import datetime
 
 router = APIRouter()
 
+# Schemas simples para Medicamentos (pode ser movido para schemas.py)
+class MedicamentoBase(BaseModel):
+    nome: str
+    dosagem: str
+    horarios: List[str]
+    principio_ativo: str = None
+    observacoes: str = None
+
+class MedicamentoCreate(MedicamentoBase):
+    idoso_id: int
+
+class MedicamentoResponse(MedicamentoBase):
+    id: int
+    idoso_id: int
+    ativo: bool
+
+class SinaisVitaisCreate(BaseModel):
+    idoso_id: int
+    tipo: str
+    valor: str
+    unidade: str
+    observacoes: str = None
+
+class SinaisVitaisResponse(SinaisVitaisCreate):
+    id: int
+    data_medicao: datetime
+
+
 # --- Medicamentos ---
 
-@router.get("/", response_model=List[MedicamentoResponse])
-async def list_medicamentos(idoso_id: int = None, db: Session = Depends(get_db)):
+@router.get("/{idoso_id}", response_model=List[dict])
+async def list_medicamentos(idoso_id: int, db: AsyncSession = Depends(get_db)):
     repo = MedicamentoRepository(db)
-    if idoso_id:
-        return await repo.get_by_idoso(idoso_id)
-    return [] 
+    return await repo.get_by_idoso(idoso_id)
 
-@router.get("/{id}", response_model=MedicamentoResponse)
-async def get_medicamento(id: int, db: Session = Depends(get_db)):
-    repo = MedicamentoRepository(db)
-    med = repo.get_by_id(id)
-    if not med:
-        raise HTTPException(status_code=404, detail="Medicamento not found")
-    return med
 
-@router.post("/", response_model=MedicamentoResponse)
-def create_medicamento(med: MedicamentoCreate, db: Session = Depends(get_db)):
+@router.post("/", response_model=dict)
+async def create_medicamento(dados: dict, db: AsyncSession = Depends(get_db)):
     repo = MedicamentoRepository(db)
-    return repo.create(med.model_dump())
+    return await repo.create(dados)
 
-@router.put("/{id}", response_model=MedicamentoResponse)
-def update_medicamento(id: int, med: MedicamentoUpdate, db: Session = Depends(get_db)):
-    repo = MedicamentoRepository(db)
-    updated = repo.update(id, med.model_dump(exclude_unset=True))
-    if not updated:
-        raise HTTPException(status_code=404, detail="Medicamento not found")
-    return updated
 
 @router.delete("/{id}")
-def delete_medicamento(id: int, db: Session = Depends(get_db)):
     repo = MedicamentoRepository(db)
     success = repo.delete(id)
     if not success:
