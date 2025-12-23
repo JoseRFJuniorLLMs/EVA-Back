@@ -21,11 +21,22 @@ async def get_assinatura(id: int, db: AsyncSession = Depends(get_db)):
     return assinatura
 
 @router.get("/consumo/{idoso_id}", response_model=ConsumoResponse)
-async def get_consumo(idoso_id: int, mes: int, ano: int, db: AsyncSession = Depends(get_db)):
+async def get_consumo(
+    idoso_id: int, 
+    mes: Optional[int] = None, 
+    ano: Optional[int] = None, 
+    db: AsyncSession = Depends(get_db)
+):
+    """Obtém o consumo de um idoso. Se mês/ano não informados, usa o atual."""
+    import datetime
+    now = datetime.datetime.now()
+    if mes is None: mes = now.month
+    if ano is None: ano = now.year
+    
     repo = FaturamentoRepository(db)
     consumo = await repo.get_consumo_mes(idoso_id, mes, ano)
     if not consumo:
-         raise HTTPException(status_code=404, detail="Consumo not found for this period")
+         raise HTTPException(status_code=404, detail="Consumo não encontrado para este período")
     return consumo
 
 @router.get("/audit", response_model=List[dict])
@@ -33,7 +44,7 @@ async def list_audit_logs(db: AsyncSession = Depends(get_db)):
     # Simple query for audit logs
     from database.models import AuditLog
     from sqlalchemy import select
-    query = select(AuditLog).order_by(AuditLog.criado_em.desc()).limit(100)
+    query = select(AuditLog).order_by(AuditLog.criado_em.desc()).limit(10)
     result = await db.execute(query)
     return [
         {
