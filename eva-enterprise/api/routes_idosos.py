@@ -10,15 +10,25 @@ from schemas import (
     PerfilClinicoResponse, PerfilClinicoBase,
     MemoriaResponse, MemoriaBase
 )
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
 # --- Idosos ---
 
 @router.get("/", response_model=List[IdosoResponse])
-async def list_idosos(nome: str = None, cpf: str = None, telefone: str = None, skip: int = 0, limit: int = 10,
-                db: AsyncSession = Depends(get_db)):
+async def list_idosos(
+    nome: str = None, 
+    cpf: str = None, 
+    telefone: str = None, 
+    skip: int = 0, 
+    limit: int = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Lista idosos. Regra: se algum filtro for passado, retorna 1. Se não, retorna 10 por padrão."""
+    if limit is None:
+        limit = 1 if (nome or cpf or telefone) else 10
+        
     repo = IdosoRepository(db)
     return await repo.get_all(skip=skip, limit=limit, nome=nome, cpf=cpf, telefone=telefone)
 

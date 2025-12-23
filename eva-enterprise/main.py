@@ -57,12 +57,12 @@ app.add_middleware(
 # ======================
 # ROTAS
 # ======================
-app.include_router(routes_idosos.router, prefix="/idosos", tags=["Idosos"])
-app.include_router(routes_agendamentos.router, prefix="/agendamentos", tags=["Agendamentos"])
+app.include_router(routes_idosos.router, prefix="/idosos/idosos", tags=["Idosos"])
+app.include_router(routes_agendamentos.router, prefix="/agendamento/agendamento", tags=["Agendamentos"])
 app.include_router(routes_alertas.router, prefix="/alertas", tags=["Alertas"])
 app.include_router(routes_medicamentos.router, prefix="/medicamentos", tags=["Medicamentos"])
 app.include_router(routes_pagamentos.router, prefix="/pagamentos", tags=["Pagamentos"])
-app.include_router(routes_config.router, prefix="/config", tags=["Configurações"])
+app.include_router(routes_config.router, prefix="/config/config", tags=["Configurações"])
 app.include_router(routes_extras.router, prefix="/extras", tags=["Extras"])
 app.include_router(routes_orquestrador.router, prefix="/orquestrador", tags=["Orquestrador"])
 app.include_router(routes_placeholders.router, tags=["Placeholders"])

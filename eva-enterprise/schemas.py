@@ -154,6 +154,9 @@ class MedicamentoBase(BaseModel):
     nome: str
     dosagem: Optional[str] = None
     horarios: List[str] = []
+    principio_ativo: Optional[str] = None
+    forma: Optional[str] = None
+    observacao: Optional[str] = None
     ativo: bool = True
 
 class MedicamentoCreate(MedicamentoBase):
@@ -217,6 +220,9 @@ class AlertaResponse(AlertaCreate):
     criado_em: datetime
     resolvido: bool
     model_config = ConfigDict(from_attributes=True)
+
+class InsightGenerate(BaseModel):
+    idoso_id: int
 
 class PsicologiaInsightResponse(BaseModel):
     id: int

@@ -6,14 +6,17 @@ from schemas import (
     AlertaResponse, AlertaCreate,
     PsicologiaInsightResponse, TopicoAfetivoResponse, InsightGenerate
 )
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
 # --- Alertas ---
 
 @router.get("/", response_model=List[AlertaResponse])
-async def list_alertas(tipo: str = None, limit: int = 50, db: AsyncSession = Depends(get_db)):
+async def list_alertas(tipo: str = None, limit: Optional[int] = None, db: AsyncSession = Depends(get_db)):
+    """Lista alertas recentes. Regra: se tipo for passado, retorna 1. Se não, retorna 10 por padrão."""
+    if limit is None:
+        limit = 1 if tipo else 10
     repo = AlertaRepository(db)
     return await repo.get_recent_alerts(limit=limit, tipo=tipo)
 
@@ -49,7 +52,8 @@ async def resolve_alerta(id: int, nota: str = None, db: AsyncSession = Depends(g
 @router.get("/psicologia-insights/{idoso_id}", response_model=List[PsicologiaInsightResponse])
 async def get_insights(idoso_id: int, db: AsyncSession = Depends(get_db)):
     repo = AlertaRepository(db)
-    return await repo.get_insights(idoso_id)
+    results = await repo.get_insights(idoso_id)
+    return results[:1]
 
 @router.post("/psicologia-insights/", response_model=PsicologiaInsightResponse)
 async def generate_insight(data: InsightGenerate, db: AsyncSession = Depends(get_db)):
@@ -61,7 +65,8 @@ async def generate_insight(data: InsightGenerate, db: AsyncSession = Depends(get
 @router.get("/topicos-afetivos/{idoso_id}", response_model=List[TopicoAfetivoResponse])
 async def get_topicos(idoso_id: int, db: AsyncSession = Depends(get_db)):
     repo = AlertaRepository(db)
-    return await repo.get_topicos(idoso_id)
+    results = await repo.get_topicos(idoso_id)
+    return results[:1]
 
 @router.post("/topicos-afetivos/atualizar")
 async def update_topico(idoso_id: int, topico: str, sentimento: str = None, db: AsyncSession = Depends(get_db)):

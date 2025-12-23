@@ -1,59 +1,12 @@
-"""
-API de Agendamentos - Endpoints para gerenciar agendamentos
-"""
 from fastapi import APIRouter, HTTPException, Depends, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
-from pydantic import BaseModel
-from datetime import datetime
 
 from database.connection import get_db
 from database.repositories.agendamento_repo import AgendamentoRepository
+from schemas import AgendamentoCreate, AgendamentoResponse
 
 router = APIRouter()
-
-# ==================== SCHEMAS ====================
-
-class AgendamentoCreate(BaseModel):
-    """Schema para criar agendamento"""
-    idoso_id: int
-    tipo: str
-    descricao: str
-    horario: datetime
-    telefone: Optional[str] = None
-    recorrente: bool = False
-    frequencia: Optional[str] = None
-
-
-class AgendamentoUpdate(BaseModel):
-    """Schema para atualizar agendamento"""
-    tipo: Optional[str] = None
-    descricao: Optional[str] = None
-    horario: Optional[datetime] = None
-    telefone: Optional[str] = None
-    status: Optional[str] = None
-    recorrente: Optional[bool] = None
-    frequencia: Optional[str] = None
-
-
-class AgendamentoResponse(BaseModel):
-    """Schema de resposta de agendamento"""
-    id: int
-    idoso_id: int
-    idoso_nome: Optional[str] = None
-    tipo: Optional[str] = None
-    descricao: Optional[str] = None
-    horario: datetime
-    status: str
-    telefone: Optional[str] = None
-    tentativas_realizadas: int = 0
-    recorrente: bool = False
-    frequencia: Optional[str] = None
-    criado_em: Optional[datetime] = None
-    
-    class Config:
-        from_attributes = True
-
 
 # ==================== ENDPOINTS ====================
 
@@ -90,11 +43,15 @@ async def obter_agendamento(
 @router.get("/", response_model=List[AgendamentoResponse])
 async def listar_agendamentos(
     skip: int = 0,
-    limit: int = 100,
+    limit: Optional[int] = None,
     idoso_id: Optional[int] = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Lista agendamentos com filtros opcionais"""
+    """Lista agendamentos com filtros opcionais. 
+    Regra: se idoso_id for passado, retorna 1. Se não, retorna 10 por padrão."""
+    if limit is None:
+        limit = 1 if idoso_id else 10
+        
     repo = AgendamentoRepository(db)
     return await repo.get_all(skip=skip, limit=limit, idoso_id=idoso_id)
 
@@ -102,15 +59,13 @@ async def listar_agendamentos(
 @router.put("/{agendamento_id}", response_model=AgendamentoResponse)
 async def atualizar_agendamento(
     agendamento_id: int,
-    dados: AgendamentoUpdate,
+    dados: dict = Body(...),
     db: AsyncSession = Depends(get_db)
 ):
     """Atualiza dados de um agendamento"""
     repo = AgendamentoRepository(db)
     
-    update_data = {k: v for k, v in dados.model_dump().items() if v is not None}
-    
-    agendamento = await repo.update(agendamento_id, update_data)
+    agendamento = await repo.update(agendamento_id, dados)
     
     if not agendamento:
         raise HTTPException(status_code=404, detail="Agendamento não encontrado")
@@ -127,7 +82,7 @@ async def atualizar_status(
     """Atualiza apenas o status de um agendamento"""
     repo = AgendamentoRepository(db)
     
-    status_validos = ['pendente', 'em_andamento', 'concluido', 'cancelado', 'falhou', 'retry_agendado']
+    status_validos = ['agendado', 'em_andamento', 'concluido', 'cancelado', 'falhou', 'retry_agendado']
     if status not in status_validos:
         raise HTTPException(
             status_code=400,
