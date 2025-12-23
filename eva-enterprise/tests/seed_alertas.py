@@ -4,75 +4,79 @@ import asyncio
 import sys
 from datetime import datetime, timedelta
 from sqlalchemy import select
-from faker import Faker
-from dotenv import load_dotenv
 
 # Path setup to import local modules
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from database.connection import AsyncSessionLocal
+from database.connection import AsyncSessionLocal, DATABASE_URL, engine, Base
 from database.models import Idoso, Alerta
 
-# Load environment variables
-load_dotenv()
-
-fake = Faker('pt_BR')
-
 async def seed_alertas():
+    print(f"DEBUG: DATABASE_URL logada: {DATABASE_URL}")
+    
     async with AsyncSessionLocal() as db:
-        print("Iniciando geração de 10 alertas por idoso...")
-        
+        print("DEBUG: Criando tabelas se necessário...")
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            
+        print("DEBUG: Buscando idosos...")
         try:
-            # Busca todos os idosos
             result = await db.execute(select(Idoso))
             idosos = result.scalars().all()
             
             if not idosos:
-                print("Nenhum idoso encontrado. Abortando.")
+                print("ERRO: Nenhum idoso encontrado no banco!")
                 return
 
-            print(f"Encontrados {len(idosos)} idosos. Gerando {len(idosos) * 10} registros...")
+            print(f"DEBUG: Encontrados {len(idosos)} idosos. Iniciando inserção...")
             
             count = 0
-            tipos = ["medicamento", "saude", "seguranca", "bem_estar", "cognitivo"]
-            severidades = ["baixa", "media", "alta", "critica"]
+            # Valores estritamente alinhados com os CHECK constraints de eva-v7.sql
+            tipos_validos = [
+                'dose_esquecida',
+                'efeito_colateral',
+                'queda',
+                'confusao_mental',
+                'tristeza_profunda',
+                'dor_intensa',
+                'nao_atende_telefone',
+                'alerta_ia',
+                'outro'
+            ]
+            severidades_validas = ['baixa', 'aviso', 'alta', 'critica']
             
             for idoso in idosos:
-                for _ in range(10):
-                    # Random date in the last 30 days
-                    days_ago = random.randint(0, 30)
-                    hours_ago = random.randint(0, 23)
-                    minutes_ago = random.randint(0, 59)
-                    data_alerta = datetime.now() - timedelta(days=days_ago, hours=hours_ago, minutes=minutes_ago)
-                    
-                    # Some alerts are resolved, some are viewed, some are new
-                    resolvido = random.choice([True, False])
-                    visualizado = resolvido or random.choice([True, False])
+                for i in range(10):
+                    data_alerta = datetime.now() - timedelta(days=random.randint(0, 30))
+                    tipo = random.choice(tipos_validos)
+                    severidade = random.choice(severidades_validas)
                     
                     alerta = Alerta(
                         idoso_id=idoso.id,
-                        tipo=random.choice(tipos),
-                        severidade=random.choice(severidades),
-                        mensagem=fake.sentence(nb_words=8),
-                        contexto_adicional={"ia_confidence": random.uniform(0.7, 0.99)},
-                        destinatarios=["Familiar", "Cuidador Principal"],
+                        tipo=tipo,
+                        severidade=severidade,
+                        mensagem=f"Alerta de teste {i+1} para {idoso.nome}: {tipo.replace('_', ' ').capitalize()}",
+                        contexto_adicional={"test_seed": True, "generated_at": str(datetime.now())},
+                        destinatarios=["Familiar", "Admin"], 
                         enviado=True,
-                        data_envio=data_alerta + timedelta(minutes=2),
-                        visualizado=visualizado,
-                        data_visualizacao=data_alerta + timedelta(hours=random.randint(1, 4)) if visualizado else None,
-                        resolvido=resolvido,
-                        data_resolucao=data_alerta + timedelta(hours=random.randint(5, 24)) if resolvido else None,
-                        resolucao_nota=fake.sentence(nb_words=5) if resolvido else None,
+                        data_envio=data_alerta,
+                        visualizado=random.choice([True, False]),
+                        resolvido=random.choice([True, False]),
                         criado_em=data_alerta
                     )
                     
                     db.add(alerta)
                     count += 1
+                
+                # Commit incremental
+                if count % 100 == 0:
+                    await db.commit()
+                    print(f"DEBUG: {count} registros processados...")
 
             await db.commit()
-            print(f"Sucesso! {count} alertas criados com sucesso.")
+            print(f"SUCESSO TOTAL: {count} alertas inseridos com sucesso!")
             
         except Exception as e:
-            print(f"Erro ao popular banco: {e}")
+            print(f"ERRO CRÍTICO no seed: {type(e).__name__}: {str(e)}")
             await db.rollback()
 
 if __name__ == "__main__":

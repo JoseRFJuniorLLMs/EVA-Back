@@ -126,7 +126,25 @@ class MedicamentoRepository:
             'nome': r.nome,
             'dosagem': r.dosagem,
             'idoso_id': r.idoso_id,
-            'horarios': r.horarios,
+            'horarios': r.horarios if r.horarios is not None else [],
+            'principio_ativo': getattr(r, 'principio_ativo', None),
+            'forma': getattr(r, 'forma', None),
+            'observacoes': getattr(r, 'observacoes', None)
+        } for r in results]
+    
+    async def get_all(self) -> List[dict]:
+        query = select(Medicamento).filter(
+            Medicamento.ativo == True
+        ).order_by(Medicamento.nome)
+        
+        result = await self.db.execute(query)
+        results = result.scalars().all()
+        return [{
+            'id': r.id,
+            'nome': r.nome,
+            'dosagem': r.dosagem,
+            'idoso_id': r.idoso_id,
+            'horarios': r.horarios if r.horarios is not None else [],
             'principio_ativo': getattr(r, 'principio_ativo', None),
             'forma': getattr(r, 'forma', None),
             'observacoes': getattr(r, 'observacoes', None)

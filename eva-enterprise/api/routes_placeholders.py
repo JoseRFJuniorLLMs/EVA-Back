@@ -13,9 +13,6 @@ async def get_metricas():
 async def get_contatos_alerta():
     return []
 
-@router.get("/timeline/", tags=["Placeholders"])
-async def get_timeline():
-    return []
 
 @router.get("/formas-pagamento/", tags=["Placeholders"])
 async def get_formas_pagamento():

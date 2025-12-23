@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from ..models import Alerta, PsicologiaInsight, TopicoAfetivo
+from ..models import Alerta, Idoso, PsicologiaInsight, TopicoAfetivo
 from typing import List, Optional
 import datetime
 
@@ -8,12 +8,20 @@ class AlertaRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_recent_alerts(self, limit: int = 50, tipo: str = None) -> List[Alerta]:
-        query = select(Alerta)
+    async def get_recent_alerts(self, limit: int = 50, tipo: str = None) -> List[dict]:
+        query = select(Alerta, Idoso.nome.label("idoso_nome"), Idoso.foto_url, Idoso.telefone).join(Idoso, Alerta.idoso_id == Idoso.id)
         if tipo:
             query = query.filter(Alerta.tipo == tipo)
         result = await self.db.execute(query.order_by(Alerta.criado_em.desc()).limit(limit))
-        return result.scalars().all()
+        
+        alertas = []
+        for row in result:
+            res = {c.name: getattr(row.Alerta, c.name) for c in row.Alerta.__table__.columns}
+            res["idoso_nome"] = row.idoso_nome
+            res["foto_url"] = row.foto_url
+            res["telefone"] = row.telefone
+            alertas.append(res)
+        return alertas
 
     async def create_alerta(self, idoso_id: int, tipo: str, severidade: str, mensagem: str, destinatarios: list = []) -> Alerta:
         alerta = Alerta(
@@ -28,10 +36,17 @@ class AlertaRepository:
         await self.db.refresh(alerta)
         return alerta
 
-    async def get_by_id(self, id: int) -> Optional[Alerta]:
-        query = select(Alerta).filter(Alerta.id == id)
+    async def get_by_id(self, id: int) -> Optional[dict]:
+        query = select(Alerta, Idoso.nome.label("idoso_nome"), Idoso.foto_url, Idoso.telefone).join(Idoso, Alerta.idoso_id == Idoso.id).filter(Alerta.id == id)
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        row = result.first()
+        if row:
+            res = {c.name: getattr(row.Alerta, c.name) for c in row.Alerta.__table__.columns}
+            res["idoso_nome"] = row.idoso_nome
+            res["foto_url"] = row.foto_url
+            res["telefone"] = row.telefone
+            return res
+        return None
 
     async def resolve_alerta(self, id: int, nota: str = None) -> Optional[Alerta]:
         alerta = await self.get_by_id(id)

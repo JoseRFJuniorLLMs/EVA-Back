@@ -9,16 +9,31 @@ class AgendamentoRepository:
         self.db = db
 
     async def get_by_id(self, agendamento_id: int) -> Optional[Agendamento]:
-        query = select(Agendamento).filter(Agendamento.id == agendamento_id)
+        query = select(Agendamento, Idoso.nome.label("idoso_nome"), Idoso.foto_url, Idoso.telefone).join(Idoso, Agendamento.idoso_id == Idoso.id).filter(Agendamento.id == agendamento_id)
         result = await self.db.execute(query)
-        return result.scalar_one_or_none()
+        row = result.first()
+        if row:
+            ag = row.Agendamento
+            ag.idoso_nome = row.idoso_nome
+            ag.foto_url = row.foto_url
+            ag.telefone = row.telefone
+            return ag
+        return None
 
     async def get_all(self, skip: int = 0, limit: int = 100, idoso_id: int = None) -> List[Agendamento]:
-        query = select(Agendamento)
+        query = select(Agendamento, Idoso.nome.label("idoso_nome"), Idoso.foto_url, Idoso.telefone).join(Idoso, Agendamento.idoso_id == Idoso.id)
         if idoso_id:
             query = query.filter(Agendamento.idoso_id == idoso_id)
         result = await self.db.execute(query.order_by(Agendamento.data_hora_agendada.desc()).offset(skip).limit(limit))
-        return result.scalars().all()
+        
+        agendamentos = []
+        for row in result:
+            ag = row.Agendamento
+            ag.idoso_nome = row.idoso_nome
+            ag.foto_url = row.foto_url
+            ag.telefone = row.telefone
+            agendamentos.append(ag)
+        return agendamentos
 
     async def create(self, dados: dict) -> Agendamento:
         agendamento = Agendamento(**dados)

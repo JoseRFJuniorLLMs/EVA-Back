@@ -195,6 +195,9 @@ class AgendamentoResponse(AgendamentoBase):
     id: int
     tentativas_realizadas: int
     proxima_tentativa: Optional[datetime]
+    idoso_nome: Optional[str] = None
+    foto_url: Optional[str] = None
+    telefone: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class HistoricoResponse(BaseModel):
@@ -220,6 +223,9 @@ class AlertaResponse(AlertaCreate):
     id: int
     criado_em: datetime
     resolvido: bool
+    idoso_nome: Optional[str] = None
+    foto_url: Optional[str] = None
+    telefone: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
 
 class InsightGenerate(BaseModel):

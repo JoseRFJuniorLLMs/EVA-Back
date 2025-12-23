@@ -7,6 +7,24 @@ from typing import List, Optional
 
 router = APIRouter()
 
+@router.get("/timeline")
+async def get_all_timeline(db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import select
+    from database.models import Timeline # Vou assumir que vou adicionar ao models ou usar texto puro
+    # Usando query textual para rapidez se o model não existir, ou adicionar ao models.
+    # Mas o correto é adicionar ao models.py
+    from sqlalchemy import text
+    query = text("SELECT id, idoso_id, tipo, subtipo, titulo, descricao, TO_CHAR(data, 'DD/MM/YYYY HH24:MI') as data FROM timeline ORDER BY data DESC LIMIT 50")
+    result = await db.execute(query)
+    return [dict(row._mapping) for row in result]
+
+@router.get("/timeline/{idoso_id}")
+async def get_idoso_timeline(idoso_id: int, db: AsyncSession = Depends(get_db)):
+    from sqlalchemy import text
+    query = text("SELECT id, idoso_id, tipo, subtipo, titulo, descricao, TO_CHAR(data, 'DD/MM/YYYY HH24:MI') as data FROM timeline WHERE idoso_id = :idoso_id ORDER BY data DESC")
+    result = await db.execute(query, {"idoso_id": idoso_id})
+    return [dict(row._mapping) for row in result]
+
 @router.get("/", response_model=List[HistoricoResponse])
 async def list_historico(
     idoso_id: Optional[int] = None,

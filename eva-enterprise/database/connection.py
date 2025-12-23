@@ -16,9 +16,20 @@ if DATABASE_URL:
     elif DATABASE_URL.startswith("postgresql://") and "+asyncpg" not in DATABASE_URL:
         DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-print(f"🔌 Conectando ao banco de dados (ASYNC): {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Local'}")
+# Se for SQLite, garante o driver correto
+if not DATABASE_URL or "sqlite" in DATABASE_URL:
+    DATABASE_URL = "sqlite+aiosqlite:///./eva_saude.db"
 
-engine = create_async_engine(DATABASE_URL, echo=False)
+print(f"🔌 Conectando ao banco de dados (ASYNC): {DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else 'Local (SQLite)'}")
+
+try:
+    engine = create_async_engine(DATABASE_URL, echo=False)
+except Exception as e:
+    print(f"⚠️ Falha ao criar engine para {DATABASE_URL}: {e}")
+    print("🔄 Tentando fallback para SQLite local...")
+    DATABASE_URL = "sqlite+aiosqlite:///./eva_saude.db"
+    engine = create_async_engine(DATABASE_URL, echo=False)
+
 AsyncSessionLocal = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
 Base = declarative_base()

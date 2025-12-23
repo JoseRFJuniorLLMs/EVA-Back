@@ -36,7 +36,14 @@ async def get_consumo(
     repo = FaturamentoRepository(db)
     consumo = await repo.get_consumo_mes(idoso_id, mes, ano)
     if not consumo:
-         raise HTTPException(status_code=404, detail="Consumo não encontrado para este período")
+         return {
+             "idoso_id": idoso_id,
+             "mes_referencia": mes,
+             "ano_referencia": ano,
+             "total_tokens": 0,
+             "total_minutos": 0,
+             "custo_total_estimado": 0.0
+         }
     return consumo
 
 @router.get("/audit", response_model=List[dict])

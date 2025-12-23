@@ -62,6 +62,7 @@ class Idoso(Base):
     perfil_clinico = relationship("IdosoPerfilClinico", back_populates="idoso", uselist=False)
     protocolos = relationship("ProtocoloAlerta", back_populates="idoso")
     consumos = relationship("FaturamentoConsumo", back_populates="idoso")
+    timeline = relationship("Timeline", back_populates="idoso")
 
 
 class MembroFamilia(Base):
@@ -378,3 +379,17 @@ class RateLimit(Base):
     endpoint = Column(String, unique=True)
     limit_count = Column(Integer, default=100)
     interval_seconds = Column(Integer, default=60)
+
+
+class Timeline(Base):
+    __tablename__ = "timeline"
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id'))
+    tipo = Column(String, nullable=False)
+    subtipo = Column(String)
+    titulo = Column(String, nullable=False)
+    descricao = Column(Text)
+    data = Column(DateTime, default=datetime.datetime.now)
+    criado_em = Column(DateTime, default=datetime.datetime.now)
+
+    idoso = relationship("Idoso", back_populates="timeline")

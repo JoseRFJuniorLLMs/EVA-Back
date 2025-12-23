@@ -13,6 +13,11 @@ router = APIRouter()
 
 # --- Medicamentos ---
 
+@router.get("/", response_model=List[MedicamentoResponse])
+async def list_todos_medicamentos(db: AsyncSession = Depends(get_db)):
+    repo = MedicamentoRepository(db)
+    return await repo.get_all()
+
 @router.get("/{idoso_id}", response_model=List[MedicamentoResponse])
 async def list_medicamentos(idoso_id: int, db: AsyncSession = Depends(get_db)):
     """Lista medicamentos. Regra: como passa idoso_id, limita a 1 item."""
