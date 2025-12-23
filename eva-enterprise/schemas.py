@@ -93,6 +93,7 @@ class IdosoUpdate(BaseModel):
     sentimento: Optional[str] = None
     nivel_cognitivo: Optional[str] = None
     mobilidade: Optional[str] = None
+    medicamentos_atuais: Optional[Any] = None
 
 class IdosoResponse(IdosoBase):
     id: int
