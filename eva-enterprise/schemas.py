@@ -156,7 +156,7 @@ class MedicamentoBase(BaseModel):
     horarios: List[str] = []
     principio_ativo: Optional[str] = None
     forma: Optional[str] = None
-    observacao: Optional[str] = None
+    observacoes: Optional[str] = None
     ativo: bool = True
 
 class MedicamentoCreate(MedicamentoBase):

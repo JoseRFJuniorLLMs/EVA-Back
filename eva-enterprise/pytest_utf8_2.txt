@@ -1,0 +1,588 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.11.9, pytest-9.0.2, pluggy-1.6.0 -- C:\Users\web2a\AppData\Local\Programs\Python\Python311\python.exe
+cachedir: .pytest_cache
+rootdir: d:\dev\EVA\EVA-back\eva-enterprise
+configfile: pytest.ini
+plugins: anyio-4.12.0, Faker-39.0.0, asyncio-1.3.0
+asyncio: mode=Mode.AUTO, debug=False, asyncio_default_fixture_loop_scope=session, asyncio_default_test_loop_scope=function
+collecting ... collected 11 items
+
+tests/test_comprehensive.py::test_idosos_endpoints ERROR                 [  9%]
+tests/test_comprehensive.py::test_agendamentos_endpoints ERROR           [ 18%]
+tests/test_comprehensive.py::test_alertas_endpoints ERROR                [ 27%]
+tests/test_comprehensive.py::test_medicamentos_endpoints ERROR           [ 36%]
+tests/test_comprehensive.py::test_pagamentos_endpoints ERROR             [ 45%]
+tests/test_comprehensive.py::test_config_endpoints ERROR                 [ 54%]
+tests/test_comprehensive.py::test_extras_endpoints ERROR                 [ 63%]
+tests/test_comprehensive.py::test_orquestrador_endpoints ERROR           [ 72%]
+tests/test_comprehensive.py::test_protocolos_endpoints ERROR             [ 81%]
+tests/test_comprehensive.py::test_historico_endpoints ERROR              [ 90%]
+tests/test_comprehensive.py::test_health_check ERROR                     [100%]
+
+=================================== ERRORS ====================================
+___________________ ERROR at setup of test_idosos_endpoints ___________________
+
+self = <Coroutine test_idosos_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:743: in pytest_fixture_setup
+    hook_result = yield
+                  ^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+________________ ERROR at setup of test_agendamentos_endpoints ________________
+
+self = <Coroutine test_agendamentos_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+__________________ ERROR at setup of test_alertas_endpoints ___________________
+
+self = <Coroutine test_alertas_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+________________ ERROR at setup of test_medicamentos_endpoints ________________
+
+self = <Coroutine test_medicamentos_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+_________________ ERROR at setup of test_pagamentos_endpoints _________________
+
+self = <Coroutine test_pagamentos_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+___________________ ERROR at setup of test_config_endpoints ___________________
+
+self = <Coroutine test_config_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+___________________ ERROR at setup of test_extras_endpoints ___________________
+
+self = <Coroutine test_extras_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+________________ ERROR at setup of test_orquestrador_endpoints ________________
+
+self = <Coroutine test_orquestrador_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+_________________ ERROR at setup of test_protocolos_endpoints _________________
+
+self = <Coroutine test_protocolos_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+_________________ ERROR at setup of test_historico_endpoints __________________
+
+self = <Coroutine test_historico_endpoints>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+_____________________ ERROR at setup of test_health_check _____________________
+
+self = <Coroutine test_health_check>
+
+    def setup(self) -> None:
+        runner_fixture_id = f"_{self._loop_scope}_scoped_runner"
+        if runner_fixture_id not in self.fixturenames:
+            self.fixturenames.append(runner_fixture_id)
+>       return super().setup()
+               ^^^^^^^^^^^^^^^
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:458: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:313: in _asyncgen_fixture_wrapper
+    result = runner.run(setup(), context=context)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\runners.py:118: in run
+    return self._loop.run_until_complete(task)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\asyncio\base_events.py:654: in run_until_complete
+    return future.result()
+           ^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\pytest_asyncio\plugin.py:309: in setup
+    res = await gen_obj.__anext__()
+          ^^^^^^^^^^^^^^^^^^^^^^^^^
+tests\conftest.py:23: in test_engine
+    engine = create_async_engine(TEST_DATABASE_URL, echo=False)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\ext\asyncio\engine.py:120: in create_async_engine
+    sync_engine = _create_engine(url, **kw)
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\util\deprecations.py:281: in warned
+    return fn(*args, **kwargs)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\engine\create.py:599: in create_engine
+    dbapi = dbapi_meth(**dbapi_args)
+            ^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+cls = <class 'sqlalchemy.dialects.sqlite.aiosqlite.SQLiteDialect_aiosqlite'>
+
+    @classmethod
+    def import_dbapi(cls):
+        return AsyncAdapt_aiosqlite_dbapi(
+>           __import__("aiosqlite"), __import__("sqlite3")
+            ^^^^^^^^^^^^^^^^^^^^^^^
+        )
+E       ModuleNotFoundError: No module named 'aiosqlite'
+
+C:\Users\web2a\AppData\Local\Programs\Python\Python311\Lib\site-packages\sqlalchemy\dialects\sqlite\aiosqlite.py:374: ModuleNotFoundError
+=========================== short test summary info ===========================
+ERROR tests/test_comprehensive.py::test_idosos_endpoints - ModuleNotFoundErro...
+ERROR tests/test_comprehensive.py::test_agendamentos_endpoints - ModuleNotFou...
+ERROR tests/test_comprehensive.py::test_alertas_endpoints - ModuleNotFoundErr...
+ERROR tests/test_comprehensive.py::test_medicamentos_endpoints - ModuleNotFou...
+ERROR tests/test_comprehensive.py::test_pagamentos_endpoints - ModuleNotFound...
+ERROR tests/test_comprehensive.py::test_config_endpoints - ModuleNotFoundErro...
+ERROR tests/test_comprehensive.py::test_extras_endpoints - ModuleNotFoundErro...
+ERROR tests/test_comprehensive.py::test_orquestrador_endpoints - ModuleNotFou...
+ERROR tests/test_comprehensive.py::test_protocolos_endpoints - ModuleNotFound...
+ERROR tests/test_comprehensive.py::test_historico_endpoints - ModuleNotFoundE...
+ERROR tests/test_comprehensive.py::test_health_check - ModuleNotFoundError: N...
+============================= 11 errors in 2.25s ==============================
