@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from database.connection import get_db
 from database.repositories.faturamento_repo import FaturamentoRepository
 from schemas import AssinaturaResponse, ConsumoResponse, MessageResponse
-from typing import List
+from typing import List, Optional
 
 router = APIRouter()
 
