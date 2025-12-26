@@ -31,7 +31,8 @@ load_dotenv()
 # ==========================
 # CONFIGURAÇÕES
 # ==========================
-PORT = int(os.getenv("PORT", "8080"))
+# AJUSTE: Mudei o padrão para 8000 para bater com seus testes e o Flutter
+PORT = int(os.getenv("PORT", "8000"))
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
@@ -45,14 +46,15 @@ app = FastAPI(
 )
 
 # ======================
-# CORS
+# CORS (A PARTE MAIS IMPORTANTE AGORA)
 # ======================
+# Isso garante que o Flutter Web (browser) consiga falar com o Back
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # No futuro, troque pelo IP real do Flutter Web se quiser mais segurança
+    allow_origins=["*"],  # Libera geral (Web, Localhost, IP)
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["*"],  # Libera GET, POST, PUT, PATCH, DELETE, OPTIONS
+    allow_headers=["*"],  # Libera todos os cabeçalhos
 )
 
 
@@ -82,7 +84,8 @@ async def health_check():
         "status": "healthy",
         "service": "EVA Enterprise API",
         "version": "2.0.0",
-        "architecture": "Full Async"
+        "architecture": "Full Async",
+        "cors_enabled": True
     }
 
 
@@ -106,4 +109,5 @@ if __name__ == "__main__":
     print(f"Porta: {PORT}")
     print(f"Documentação: http://localhost:{PORT}/docs")
     print("=" * 60)
+    # Host 0.0.0.0 é obrigatório para funcionar na GCP e receber conexões externas
     uvicorn.run(app, host="0.0.0.0", port=PORT)
