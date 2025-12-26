@@ -393,7 +393,9 @@ CREATE TABLE idosos (
     nome VARCHAR(255) NOT NULL,
     data_nascimento DATE NOT NULL,
     telefone VARCHAR(20) NOT NULL,
+    -- Identificação e Notificação
     cpf VARCHAR(14) UNIQUE CHECK (cpf ~* '^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$'),
+    device_token TEXT,                    -- RECURSO: Firebase Push Token
     foto_url TEXT,                      -- RECURSO: Foto do Idoso
     intro_audio_url TEXT,               -- RECURSO: Intro de Voz Familiar
     

@@ -101,3 +101,19 @@ class IdosoRepository:
             await self.db.commit()
             return True
         return False
+
+    # No idoso_repo.py
+    async def update_device_token(self, idoso_id: int, token: str) -> bool:
+        """Atualiza o FCM Token para o Core Go conseguir ligar para o idoso"""
+        from sqlalchemy import update
+        from ..models import Idoso  # Importe o modelo correto
+
+        query = update(Idoso).where(Idoso.id == idoso_id).values(device_token=token)
+        try:
+            await self.db.execute(query)
+            await self.db.commit()
+            return True
+        except Exception as e:
+            print(f"Erro ao mapear/atualizar token: {e}")
+            await self.db.rollback()
+            return False

@@ -131,3 +131,27 @@ async def list_memorias(id: int, categoria: str = None, db: AsyncSession = Depen
 async def add_memoria(id: int, data: MemoriaBase, db: AsyncSession = Depends(get_db)):
     repo = PerfilRepository(db)
     return await repo.add_memoria(id, data.categoria, data.chave, data.valor, data.relevancia)
+
+@router.patch("/{id}/device-token")
+async def update_idoso_device_token(
+    id: int,
+    token: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Endpoint para o App Flutter sincronizar o FCM Token do idoso.
+    Essencial para o funcionamento do Scheduler em Go.
+    """
+    repo = IdosoRepository(db)
+    success = await repo.update_device_token(id, token)
+    if not success:
+        raise HTTPException(status_code=400, detail="Erro ao atualizar o token do dispositivo")
+    return {"status": "success", "message": "Token atualizado corretamente"}
+
+# No routes_idosos.py
+@router.patch("/{id}/device-token")
+async def update_token(id: int, token: str, db: AsyncSession = Depends(get_db)):
+    repo = IdosoRepository(db)
+    if await repo.update_device_token(id, token):
+        return {"status": "success", "message": "Token mapeado com sucesso"}
+    raise HTTPException(status_code=400, detail="Erro ao mapear token no banco")

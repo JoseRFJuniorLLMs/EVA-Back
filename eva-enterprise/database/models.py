@@ -12,6 +12,7 @@ class Idoso(Base):
     cpf = Column(String, unique=True)
     foto_url = Column(Text)
     intro_audio_url = Column(Text)
+    device_token = Column(Text, nullable=True)  # 26/12/2015 update para tokern firebase
     
     # Perfil de Saúde
     nivel_cognitivo = Column(String, default='normal')

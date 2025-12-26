@@ -79,6 +79,7 @@ class IdosoBase(BaseModel):
     mobilidade: Optional[str] = 'independente'
     tom_voz: str = "amigavel"
     timezone: str = "America/Sao_Paulo"
+    device_token: Optional[str] = None  # 26/12/2025 update para token firebase
 
 class IdosoCreate(IdosoBase):
     pass
@@ -94,6 +95,7 @@ class IdosoUpdate(BaseModel):
     nivel_cognitivo: Optional[str] = None
     mobilidade: Optional[str] = None
     medicamentos_atuais: Optional[Any] = None
+    device_token: Optional[str] = None  # 26/12/2025 update para token firebase
 
 class IdosoResponse(IdosoBase):
     id: int
