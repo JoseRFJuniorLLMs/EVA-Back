@@ -117,3 +117,15 @@ class IdosoRepository:
             print(f"Erro ao mapear/atualizar token: {e}")
             await self.db.rollback()
             return False
+
+    async def update_token_by_cpf(self, cpf: str, token: str) -> bool:
+        """Atualiza o device_token localizando o idoso pelo CPF"""
+        query = update(Idoso).where(Idoso.cpf == cpf).values(device_token=token)
+        try:
+            await self.db.execute(query)
+            await self.db.commit()
+            return True
+        except Exception as e:
+            print(f"❌ Erro ao atualizar por CPF: {e}")
+            await self.db.rollback()
+            return False

@@ -155,3 +155,10 @@ async def update_token(id: int, token: str, db: AsyncSession = Depends(get_db)):
     if await repo.update_device_token(id, token):
         return {"status": "success", "message": "Token mapeado com sucesso"}
     raise HTTPException(status_code=400, detail="Erro ao mapear token no banco")
+
+@router.patch("/sync-token-by-cpf")
+async def sync_token_cpf(cpf: str, token: str, db: AsyncSession = Depends(get_db)):
+    repo = IdosoRepository(db)
+    if await repo.update_token_by_cpf(cpf, token):
+        return {"status": "success", "message": f"Token do CPF {cpf} atualizado"}
+    raise HTTPException(status_code=404, detail="CPF não encontrado")
