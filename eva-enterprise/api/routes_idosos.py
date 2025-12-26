@@ -14,21 +14,38 @@ from typing import List, Optional
 
 router = APIRouter()
 
-# --- Idosos ---
+
+# --- ROTAS ESPECÍFICAS (TEXTO) DEVEM VIR PRIMEIRO ---
+
+@router.patch("/sync-token-by-cpf")
+async def sync_token_cpf(cpf: str, token: str, db: AsyncSession = Depends(get_db)):
+    """
+    Sincroniza o token via CPF.
+    ATENÇÃO: Esta rota DEVE ficar antes das rotas com /{id}
+    """
+    repo = IdosoRepository(db)
+    # Verifique se o método no seu repo chama 'update_token_by_cpf' ou similar.
+    # Se der erro de atributo, confirme o nome exato no seu IdosoRepository.
+    if await repo.update_token_by_cpf(cpf, token):
+        return {"status": "success", "message": f"Token do CPF {cpf} atualizado"}
+    raise HTTPException(status_code=404, detail="CPF não encontrado")
+
+
+# --- ROTAS GERAIS E DINÂMICAS (IDs) ---
 
 @router.get("/", response_model=List[IdosoResponse])
 async def list_idosos(
-    nome: str = None, 
-    cpf: str = None, 
-    telefone: str = None, 
-    skip: int = 0, 
-    limit: int = None,
-    db: AsyncSession = Depends(get_db)
+        nome: str = None,
+        cpf: str = None,
+        telefone: str = None,
+        skip: int = 0,
+        limit: int = None,
+        db: AsyncSession = Depends(get_db)
 ):
     """Lista idosos. Regra: se algum filtro for passado, retorna 1. Se não, retorna 10 por padrão."""
     if limit is None:
         limit = 1 if (nome or cpf or telefone) else 10
-        
+
     repo = IdosoRepository(db)
     return await repo.get_all(skip=skip, limit=limit, nome=nome, cpf=cpf, telefone=telefone)
 
@@ -132,33 +149,18 @@ async def add_memoria(id: int, data: MemoriaBase, db: AsyncSession = Depends(get
     repo = PerfilRepository(db)
     return await repo.add_memoria(id, data.categoria, data.chave, data.valor, data.relevancia)
 
+
 @router.patch("/{id}/device-token")
 async def update_idoso_device_token(
-    id: int,
-    token: str,
-    db: AsyncSession = Depends(get_db)
+        id: int,
+        token: str,
+        db: AsyncSession = Depends(get_db)
 ):
     """
-    Endpoint para o App Flutter sincronizar o FCM Token do idoso.
-    Essencial para o funcionamento do Scheduler em Go.
+    Endpoint para o App Flutter sincronizar o FCM Token do idoso pelo ID.
     """
     repo = IdosoRepository(db)
     success = await repo.update_device_token(id, token)
     if not success:
         raise HTTPException(status_code=400, detail="Erro ao atualizar o token do dispositivo")
     return {"status": "success", "message": "Token atualizado corretamente"}
-
-# No routes_idosos.py
-@router.patch("/{id}/device-token")
-async def update_token(id: int, token: str, db: AsyncSession = Depends(get_db)):
-    repo = IdosoRepository(db)
-    if await repo.update_device_token(id, token):
-        return {"status": "success", "message": "Token mapeado com sucesso"}
-    raise HTTPException(status_code=400, detail="Erro ao mapear token no banco")
-
-@router.patch("/sync-token-by-cpf")
-async def sync_token_cpf(cpf: str, token: str, db: AsyncSession = Depends(get_db)):
-    repo = IdosoRepository(db)
-    if await repo.update_token_by_cpf(cpf, token):
-        return {"status": "success", "message": f"Token do CPF {cpf} atualizado"}
-    raise HTTPException(status_code=404, detail="CPF não encontrado")

@@ -49,7 +49,7 @@ app = FastAPI(
 # ======================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=["*"],  # No futuro, troque pelo IP real do Flutter Web se quiser mais segurança
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
