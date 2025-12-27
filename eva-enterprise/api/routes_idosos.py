@@ -17,6 +17,26 @@ router = APIRouter()
 
 # --- ROTAS ESPECÍFICAS (TEXTO) DEVEM VIR PRIMEIRO ---
 
+@router.get("/by-cpf/{cpf}", response_model=IdosoResponse)
+async def get_idoso_by_cpf(cpf: str, db: AsyncSession = Depends(get_db)):
+    """
+    Busca idoso pelo CPF.
+    ATENÇÃO: Esta rota DEVE ficar antes das rotas com /{id}
+    """
+    repo = IdosoRepository(db)
+
+    # Remove formatação do CPF (pontos, traços)
+    cpf_clean = ''.join(filter(str.isdigit, cpf))
+
+    # Busca na lista filtrando por CPF
+    idosos = await repo.get_all(skip=0, limit=1, cpf=cpf_clean)
+
+    if not idosos or len(idosos) == 0:
+        raise HTTPException(status_code=404, detail=f"Idoso com CPF {cpf} não encontrado")
+
+    return idosos[0]
+
+
 @router.patch("/sync-token-by-cpf")
 async def sync_token_cpf(cpf: str, token: str, db: AsyncSession = Depends(get_db)):
     """
