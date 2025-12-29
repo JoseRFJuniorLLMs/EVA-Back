@@ -44,12 +44,14 @@ async def sync_token_cpf(cpf: str, token: str, db: AsyncSession = Depends(get_db
     ATENÇÃO: Esta rota DEVE ficar antes das rotas com /{id}
     """
     repo = IdosoRepository(db)
-    # Verifique se o método no seu repo chama 'update_token_by_cpf' ou similar.
-    # Se der erro de atributo, confirme o nome exato no seu IdosoRepository.
-    if await repo.update_token_by_cpf(cpf, token):
-        return {"status": "success", "message": f"Token do CPF {cpf} atualizado"}
-    raise HTTPException(status_code=404, detail="CPF não encontrado")
-
+    
+    # Remove formatação (pontos e traços) antes de enviar para o repositório
+    cpf_clean = ''.join(filter(str.isdigit, cpf))
+    
+    if await repo.update_token_by_cpf(cpf_clean, token):
+        return {"status": "success", "message": f"Token do CPF {cpf_clean} atualizado"}
+        
+    raise HTTPException(status_code=404, detail="CPF não encontrado ou erro na atualização")
 
 # --- ROTAS GERAIS E DINÂMICAS (IDs) ---
 
