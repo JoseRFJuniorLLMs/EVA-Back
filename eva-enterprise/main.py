@@ -108,7 +108,7 @@ async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
     try:
         # Executa o comando journalctl para ler o próprio serviço
         # Importante: o usuário 'web2ajax' precisa ter permissão de ler logs
-        comando = ["sudo", "journalctl", "-u", "eva-backend.service", "-n", str(linhas), "--no-pager"]
+        comando = ["journalctl", "-u", "eva-backend.service", "-n", str(linhas), "--no-pager"]
         resultado = subprocess.check_output(comando).decode("utf-8")
 
         # Converte a saída em uma lista de strings (JSON format)
