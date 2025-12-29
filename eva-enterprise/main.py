@@ -1,10 +1,11 @@
 import os
 import uvicorn
 import logging
+import subprocess
 from dotenv import load_dotenv
 
 # FastAPI
-from fastapi import FastAPI
+from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
 # Banco de dados
@@ -97,6 +98,29 @@ async def root():
         "docs": "/docs",
         "health": "/health"
     }
+
+
+@app.get("/sistema/logs")
+async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
+    """
+    Rota para monitoramento técnico do serviço via terminal
+    """
+    try:
+        # Executa o comando journalctl para ler o próprio serviço
+        # Importante: o usuário 'web2ajax' precisa ter permissão de ler logs
+        comando = ["sudo", "journalctl", "-u", "eva-backend.service", "-n", str(linhas), "--no-pager"]
+        resultado = subprocess.check_output(comando).decode("utf-8")
+
+        # Converte a saída em uma lista de strings (JSON format)
+        log_lista = resultado.strip().split("\n")
+
+        return {
+            "servico": "eva-backend",
+            "status": "online",
+            "logs": log_lista
+        }
+    except Exception as e:
+        return {"erro": f"Falha ao ler logs: {str(e)}"}
 
 
 # ==========================
