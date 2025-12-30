@@ -296,3 +296,84 @@ class ProtocoloResponse(BaseModel):
     ativo: bool
     etapas: List[ProtocoloEtapaResponse]
     model_config = ConfigDict(from_attributes=True)
+
+# --- Assinaturas (Subscription System) ---
+class SubscriptionBase(BaseModel):
+    entidade_nome: str
+    plano_id: str
+    limite_minutos: int = 1000
+
+class SubscriptionCreate(SubscriptionBase):
+    pass
+
+class SubscriptionUpdate(BaseModel):
+    plano_id: Optional[str] = None
+    limite_minutos: Optional[int] = None
+    status: Optional[str] = None
+    data_proxima_cobranca: Optional[date] = None
+
+class SubscriptionResponse(SubscriptionBase):
+    id: int
+    status: str
+    minutos_consumidos: int
+    data_proxima_cobranca: Optional[date]
+    criado_em: datetime
+    atualizado_em: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+# --- IA Avançada (Advanced AI) ---
+class PadraoComportamentoResponse(BaseModel):
+    id: int
+    idoso_id: int
+    tipo_padrao: str
+    descricao: str
+    frequencia: Optional[str]
+    confianca: Optional[Decimal]
+    primeira_deteccao: Optional[datetime]
+    ultima_confirmacao: Optional[datetime]
+    ocorrencias: int
+    dados_estatisticos: Optional[Dict[str, Any]]
+    ativo: bool
+    criado_em: datetime
+    atualizado_em: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class PredicaoEmergenciaResponse(BaseModel):
+    id: int
+    idoso_id: int
+    tipo_emergencia: str
+    probabilidade: Decimal
+    nivel_risco: str
+    fatores_contribuintes: Dict[str, Any]
+    sinais_detectados: Optional[Dict[str, Any]]
+    recomendacoes: Optional[Dict[str, Any]]
+    data_predicao: datetime
+    validade_ate: Optional[datetime]
+    confirmada: bool
+    data_confirmacao: Optional[datetime]
+    falso_positivo: bool
+    criado_em: datetime
+    
+    model_config = ConfigDict(from_attributes=True)
+
+class PredicaoEmergenciaCreate(BaseModel):
+    idoso_id: int
+    tipo_emergencia: str
+    probabilidade: Decimal
+    nivel_risco: str
+    fatores_contribuintes: Dict[str, Any]
+    sinais_detectados: Optional[Dict[str, Any]] = None
+    recomendacoes: Optional[Dict[str, Any]] = None
+    validade_ate: Optional[datetime] = None
+
+class EmocaoAnaliseRequest(BaseModel):
+    ligacao_id: int
+
+class EmocaoHistoricoResponse(BaseModel):
+    id: int
+    data: datetime
+    emocao: str
+    intensidade: float
+    sentimento_original: Optional[str]

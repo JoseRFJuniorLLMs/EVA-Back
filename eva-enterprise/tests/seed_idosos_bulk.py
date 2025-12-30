@@ -22,6 +22,10 @@ load_dotenv()
 
 fake = Faker('pt_BR')
 
+def gerar_cpf_limpo():
+    """Gera CPF sem máscara (apenas números)"""
+    return fake.cpf().replace('.', '').replace('-', '')
+
 async def seed_idosos(n=1000):
     async with AsyncSessionLocal() as db:
         print(f"🚀 Iniciando seed de {n} idosos no banco de dados...")
@@ -41,7 +45,7 @@ async def seed_idosos(n=1000):
                     nome=nome,
                     data_nascimento=fake.date_of_birth(minimum_age=65, maximum_age=98),
                     telefone=fake.cellphone_number(),
-                    cpf=fake.cpf(),
+                    cpf=gerar_cpf_limpo(),  # ← MUDANÇA AQUI
                     foto_url=f"https://i.pravatar.cc/150?u={fake.uuid4()}",
                     intro_audio_url=f"https://storage.googleapis.com/eva-assets/intros/{fake.uuid4()}.mp3",
                     

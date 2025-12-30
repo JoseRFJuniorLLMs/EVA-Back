@@ -6,6 +6,8 @@ from schemas import (
     AlertaResponse, AlertaCreate,
     PsicologiaInsightResponse, TopicoAfetivoResponse, InsightGenerate
 )
+
+from utils.pagination import get_pagination_params, PaginationParams, PaginatedResponse
 from typing import List, Optional
 
 router = APIRouter()
@@ -49,11 +51,28 @@ async def resolve_alerta(id: int, nota: str = None, db: AsyncSession = Depends(g
 
 # --- Insights & Psicologia ---
 
-@router.get("/psicologia-insights/{idoso_id}", response_model=List[PsicologiaInsightResponse])
-async def get_insights(idoso_id: int, db: AsyncSession = Depends(get_db)):
+@router.get("/psicologia-insights/{idoso_id}")
+async def get_insights(
+    idoso_id: int,
+    pagination: PaginationParams = Depends(get_pagination_params),
+    db: AsyncSession = Depends(get_db)
+):
+    """Lista insights psicológicos (paginado)"""
     repo = AlertaRepository(db)
     results = await repo.get_insights(idoso_id)
-    return results[:1]
+    
+    # Paginação manual
+    total = len(results)
+    start = pagination.offset
+    end = start + pagination.limit
+    items = results[start:end]
+    
+    return PaginatedResponse[PsicologiaInsightResponse].create(
+        items=items,
+        total=total,
+        page=pagination.page,
+        limit=pagination.limit
+    )[:1]
 
 @router.post("/psicologia-insights/", response_model=PsicologiaInsightResponse)
 async def generate_insight(data: InsightGenerate, db: AsyncSession = Depends(get_db)):

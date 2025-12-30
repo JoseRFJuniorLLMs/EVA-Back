@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey, JSON, Date, Numeric
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 import datetime
 from .connection import Base
@@ -394,3 +395,41 @@ class Timeline(Base):
     criado_em = Column(DateTime, default=datetime.datetime.now)
 
     idoso = relationship("Idoso", back_populates="timeline")
+
+
+# --- IA Avançada ---
+
+class PadraoComportamento(Base):
+    __tablename__ = "padroes_comportamento"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, nullable=False)
+    tipo_padrao = Column(String(50), nullable=False)
+    descricao = Column(Text, nullable=False)
+    frequencia = Column(String(20))
+    confianca = Column(Numeric(3, 2))
+    primeira_deteccao = Column(DateTime, default=datetime.datetime.utcnow)
+    ultima_confirmacao = Column(DateTime, default=datetime.datetime.utcnow)
+    ocorrencias = Column(Integer, default=1)
+    dados_estatisticos = Column(JSONB)
+    ativo = Column(Boolean, default=True)
+    criado_em = Column(DateTime, default=datetime.datetime.utcnow)
+    atualizado_em = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+class PredicaoEmergencia(Base):
+    __tablename__ = "predicoes_emergencia"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, nullable=False)
+    tipo_emergencia = Column(String(50), nullable=False)
+    probabilidade = Column(Numeric(3, 2), nullable=False)
+    nivel_risco = Column(String(20), nullable=False)
+    fatores_contribuintes = Column(JSONB, nullable=False)
+    sinais_detectados = Column(JSONB)
+    recomendacoes = Column(JSONB)
+    data_predicao = Column(DateTime, default=datetime.datetime.utcnow)
+    validade_ate = Column(DateTime)
+    confirmada = Column(Boolean, default=False)
+    data_confirmacao = Column(DateTime)
+    falso_positivo = Column(Boolean, default=False)
+    criado_em = Column(DateTime, default=datetime.datetime.utcnow)

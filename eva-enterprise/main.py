@@ -24,7 +24,9 @@ from api import (
     routes_orquestrador,
     routes_placeholders,
     routes_protocolos,
-    routes_historico
+    routes_historico,
+    routes_assinaturas,
+    routes_ia
 )
 
 load_dotenv()
@@ -73,6 +75,8 @@ app.include_router(routes_orquestrador.router, prefix="/orquestrador", tags=["Or
 app.include_router(routes_protocolos.router, prefix="/protocolos", tags=["Protocolos"])
 app.include_router(routes_historico.router, prefix="/historico", tags=["Histórico"])
 app.include_router(routes_placeholders.router, tags=["Placeholders"])
+app.include_router(routes_assinaturas.router, prefix="/assinaturas", tags=["Assinaturas"])
+app.include_router(routes_ia.router, prefix="/ia", tags=["IA Avançada"])
 
 
 # ======================
