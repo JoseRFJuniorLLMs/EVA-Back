@@ -130,8 +130,22 @@ class InMemoryHandler(logging.Handler):
 
 # Configurar logger para salvar no buffer também
 memory_handler = InMemoryHandler()
-memory_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s: %(message)s', datefmt='%H:%M:%S')
+memory_handler.setFormatter(formatter)
+
+# Adiciona o handler aos loggers principais
 logging.getLogger().addHandler(memory_handler)
+logging.getLogger("uvicorn").addHandler(memory_handler)
+logging.getLogger("uvicorn.access").addHandler(memory_handler)
+logging.getLogger("fastapi").addHandler(memory_handler)
+
+# Define nível INFO para garantir captura
+logging.getLogger().setLevel(logging.INFO)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("✅ Sistema de Logs em Memória INICIADO com sucesso!")
+    logger.info(f"📍 Monitorando ambiente: Cloud Run / Docker")
 
 @app.get("/sistema/logs")
 async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
@@ -139,13 +153,21 @@ async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
     Rota para monitoramento técnico - lê do buffer em memória (Cloud Compatible)
     """
     try:
+        # Força um log de acesso se o buffer estiver vazio (apenas para teste)
+        if not LOG_BUFFER:
+            logger.info("⚠️ Consulta de logs realizada, mas buffer estava vazio.")
+
         # Pega as últimas N linhas do buffer
-        # Convertendo para lista e pegando as últimas 'linhas'
         todos_logs = list(LOG_BUFFER)
         logs_recentes = todos_logs[-linhas:] if linhas < len(todos_logs) else todos_logs
 
         if not logs_recentes:
-            logs_recentes = [f"Aguardando novos logs... (Buffer vazio)"]
+            return {
+                "servico": "eva-backend",
+                "status": "online",
+                "ambiente": "Cloud Run / Docker",
+                "logs": ["--- Buffer Inicializado, aguardando eventos ---"]
+            }
 
         return {
             "servico": "eva-backend",
@@ -154,6 +176,7 @@ async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
             "logs": logs_recentes
         }
     except Exception as e:
+        logger.error(f"Erro ao ler logs: {e}")
         return {"erro": f"Falha interna ao ler logs: {str(e)}"}
 
 
