@@ -118,17 +118,26 @@ class IdosoRepository:
             await self.db.rollback()
             return False
 
-async def update_token_by_cpf(self, cpf: str, token: str) -> bool:
+    async def update_token_by_cpf(self, cpf: str, token: str) -> bool:
         """Atualiza o device_token localizando o idoso pelo CPF"""
         from sqlalchemy import update
         # Importante: Limpa o CPF para garantir que a busca encontre o registro no banco
         cpf_clean = ''.join(filter(str.isdigit, cpf))
 
-        query = update(Idoso).where(Idoso.cpf == cpf_clean).values(device_token=token)
         try:
-            await self.db.execute(query)
+            # Query correta usando update
+            stmt = (
+                update(Idoso)
+                .where(Idoso.cpf == cpf_clean)
+                .values(device_token=token)
+            )
+            
+            result = await self.db.execute(stmt)
             await self.db.commit()
-            return True
+            
+            # Verifica se alguma linha foi afetada
+            return result.rowcount > 0
+            
         except Exception as e:
             print(f"❌ Erro ao atualizar por CPF: {e}")
             await self.db.rollback()
