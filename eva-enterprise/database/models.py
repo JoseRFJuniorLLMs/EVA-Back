@@ -433,3 +433,144 @@ class PredicaoEmergencia(Base):
     data_confirmacao = Column(DateTime)
     falso_positivo = Column(Boolean, default=False)
     criado_em = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+# =====================================================
+# HEALTH DATA MODELS (Sistema de Monitoramento de Saúde)
+# =====================================================
+
+class Usuario(Base):
+    """Usuários do sistema de monitoramento de saúde"""
+    __tablename__ = "usuarios"
+    
+    id = Column(Integer, primary_key=True)
+    nome = Column(String(255), nullable=False)
+    email = Column(String(255), unique=True)
+    matricula = Column(String(50))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    
+    # Relacionamentos
+    atividades = relationship("Atividade", back_populates="usuario", cascade="all, delete-orphan")
+    sinais_vitais = relationship("SinaisVitaisHealth", back_populates="usuario", cascade="all, delete-orphan")
+    sono = relationship("Sono", back_populates="usuario", cascade="all, delete-orphan")
+    medicoes_corporais = relationship("MedicaoCorporal", back_populates="usuario", cascade="all, delete-orphan")
+    nutricao = relationship("Nutricao", back_populates="usuario", cascade="all, delete-orphan")
+    ciclo_menstrual = relationship("CicloMenstrual", back_populates="usuario", cascade="all, delete-orphan")
+
+
+class Atividade(Base):
+    """Registros de atividade física e exercícios"""
+    __tablename__ = "atividade"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    passos = Column(Integer, default=0)
+    calorias_queimadas = Column(Numeric(10, 2))
+    distancia_km = Column(Numeric(10, 2))
+    andares_subidos = Column(Integer)
+    velocidade_media = Column(Numeric(5, 2))
+    cadencia_pedalada = Column(Integer)
+    potencia_watts = Column(Integer)
+    tipo_exercicio = Column(String(100))  # corrida, natação, ciclismo, etc
+    timestamp_coleta = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="atividades")
+
+
+class SinaisVitaisHealth(Base):
+    """Sinais vitais coletados de dispositivos de saúde"""
+    __tablename__ = "sinais_vitais_health"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    bpm = Column(Integer)  # Batimentos por minuto
+    bpm_repouso = Column(Integer)  # BPM em repouso
+    pressao_sistolica = Column(Integer)  # Ex: 120
+    pressao_diastolica = Column(Integer)  # Ex: 80
+    spo2 = Column(Numeric(5, 2))  # Saturação de Oxigênio (0-100)
+    glicose_sangue = Column(Numeric(10, 2))  # mg/dL
+    frequencia_respiratoria = Column(Integer)  # Respirações por minuto
+    timestamp_coleta = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="sinais_vitais")
+
+
+class Sono(Base):
+    """Registros de sessões de sono e qualidade"""
+    __tablename__ = "sono"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    duracao_total_minutos = Column(Integer)
+    estagio_leve_minutos = Column(Integer)
+    estagio_profundo_minutos = Column(Integer)
+    estagio_rem_minutos = Column(Integer)
+    tempo_acordado_minutos = Column(Integer)
+    timestamp_inicio = Column(DateTime)
+    timestamp_fim = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="sono")
+
+
+class MedicaoCorporal(Base):
+    """Medições corporais e composição"""
+    __tablename__ = "medicao_corporal"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    peso_kg = Column(Numeric(5, 2))
+    altura_cm = Column(Numeric(5, 2))
+    perc_gordura_corporal = Column(Numeric(5, 2))
+    massa_ossea_kg = Column(Numeric(5, 2))
+    massa_magra_kg = Column(Numeric(5, 2))
+    circunferencia_cintura_cm = Column(Numeric(5, 2))
+    circunferencia_quadril_cm = Column(Numeric(5, 2))
+    timestamp_coleta = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="medicoes_corporais")
+
+
+class Nutricao(Base):
+    """Registros de nutrição e hidratação"""
+    __tablename__ = "nutricao"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    ingestao_agua_ml = Column(Integer)
+    calorias_consumidas = Column(Integer)
+    proteinas_g = Column(Numeric(10, 2))
+    carboidratos_g = Column(Numeric(10, 2))
+    gorduras_g = Column(Numeric(10, 2))
+    vitaminas_json = Column(JSONB)  # Formato flexível para vitaminas
+    timestamp_coleta = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="nutricao")
+
+
+class CicloMenstrual(Base):
+    """Registros do ciclo menstrual"""
+    __tablename__ = "ciclo_menstrual"
+    
+    id = Column(Integer, primary_key=True)
+    cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
+    data_menstruacao = Column(Date)
+    teste_ovulacao = Column(String(50))  # Positivo/Negativo
+    muco_cervical = Column(String(100))
+    atividade_sexual = Column(Boolean)
+    sintomas_json = Column(JSONB)  # Sintomas adicionais
+    timestamp_coleta = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relacionamento
+    usuario = relationship("Usuario", back_populates="ciclo_menstrual")

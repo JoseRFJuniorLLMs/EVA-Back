@@ -377,3 +377,208 @@ class EmocaoHistoricoResponse(BaseModel):
     emocao: str
     intensidade: float
     sentimento_original: Optional[str]
+
+
+# =====================================================
+# HEALTH DATA SCHEMAS (Sistema de Monitoramento de Saúde)
+# =====================================================
+
+# --- Usuários ---
+class UsuarioBase(BaseModel):
+    nome: str
+    email: Optional[str] = None
+    matricula: Optional[str] = None
+
+class UsuarioCreate(UsuarioBase):
+    pass
+
+class UsuarioUpdate(BaseModel):
+    nome: Optional[str] = None
+    email: Optional[str] = None
+    matricula: Optional[str] = None
+
+class UsuarioResponse(UsuarioBase):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Atividade Física ---
+class AtividadeCreate(BaseModel):
+    cliente_id: int
+    passos: Optional[int] = 0
+    calorias_queimadas: Optional[Decimal] = None
+    distancia_km: Optional[Decimal] = None
+    andares_subidos: Optional[int] = None
+    velocidade_media: Optional[Decimal] = None
+    cadencia_pedalada: Optional[int] = None
+    potencia_watts: Optional[int] = None
+    tipo_exercicio: Optional[str] = None
+    timestamp_coleta: datetime
+
+class AtividadeResponse(AtividadeCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class AtividadeBulkCreate(BaseModel):
+    registros: List[AtividadeCreate]
+    
+    class Config:
+        max_items = 100  # Limite para evitar timeout
+
+
+# --- Sinais Vitais ---
+class SinaisVitaisHealthCreate(BaseModel):
+    cliente_id: int
+    bpm: Optional[int] = None
+    bpm_repouso: Optional[int] = None
+    pressao_sistolica: Optional[int] = None
+    pressao_diastolica: Optional[int] = None
+    spo2: Optional[Decimal] = None
+    glicose_sangue: Optional[Decimal] = None
+    frequencia_respiratoria: Optional[int] = None
+    timestamp_coleta: datetime
+    
+    # Validações
+    @classmethod
+    def validate_spo2(cls, v):
+        if v is not None and (v < 0 or v > 100):
+            raise ValueError('SpO2 deve estar entre 0 e 100')
+        return v
+    
+    @classmethod
+    def validate_bpm(cls, v):
+        if v is not None and (v < 30 or v > 250):
+            raise ValueError('BPM deve estar entre 30 e 250')
+        return v
+    
+    @classmethod
+    def validate_pressao_sistolica(cls, v):
+        if v is not None and (v < 50 or v > 250):
+            raise ValueError('Pressão sistólica deve estar entre 50 e 250')
+        return v
+    
+    @classmethod
+    def validate_pressao_diastolica(cls, v):
+        if v is not None and (v < 30 or v > 150):
+            raise ValueError('Pressão diastólica deve estar entre 30 e 150')
+        return v
+
+class SinaisVitaisHealthResponse(SinaisVitaisHealthCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class SinaisVitaisHealthBulkCreate(BaseModel):
+    registros: List[SinaisVitaisHealthCreate]
+    
+    class Config:
+        max_items = 100
+
+
+# --- Sono ---
+class SonoCreate(BaseModel):
+    cliente_id: int
+    duracao_total_minutos: Optional[int] = None
+    estagio_leve_minutos: Optional[int] = None
+    estagio_profundo_minutos: Optional[int] = None
+    estagio_rem_minutos: Optional[int] = None
+    tempo_acordado_minutos: Optional[int] = None
+    timestamp_inicio: Optional[datetime] = None
+    timestamp_fim: Optional[datetime] = None
+
+class SonoResponse(SonoCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Medição Corporal ---
+class MedicaoCorporalCreate(BaseModel):
+    cliente_id: int
+    peso_kg: Optional[Decimal] = None
+    altura_cm: Optional[Decimal] = None
+    perc_gordura_corporal: Optional[Decimal] = None
+    massa_ossea_kg: Optional[Decimal] = None
+    massa_magra_kg: Optional[Decimal] = None
+    circunferencia_cintura_cm: Optional[Decimal] = None
+    circunferencia_quadril_cm: Optional[Decimal] = None
+    timestamp_coleta: datetime
+    
+    # Validações
+    @classmethod
+    def validate_peso_kg(cls, v):
+        if v is not None and (v < 20 or v > 300):
+            raise ValueError('Peso deve estar entre 20 e 300 kg')
+        return v
+    
+    @classmethod
+    def validate_altura_cm(cls, v):
+        if v is not None and (v < 50 or v > 250):
+            raise ValueError('Altura deve estar entre 50 e 250 cm')
+        return v
+
+class MedicaoCorporalResponse(MedicaoCorporalCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Nutrição ---
+class NutricaoCreate(BaseModel):
+    cliente_id: int
+    ingestao_agua_ml: Optional[int] = None
+    calorias_consumidas: Optional[int] = None
+    proteinas_g: Optional[Decimal] = None
+    carboidratos_g: Optional[Decimal] = None
+    gorduras_g: Optional[Decimal] = None
+    vitaminas_json: Optional[Dict[str, Any]] = None
+    timestamp_coleta: datetime
+
+class NutricaoResponse(NutricaoCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Ciclo Menstrual ---
+class CicloMenstrualCreate(BaseModel):
+    cliente_id: int
+    data_menstruacao: Optional[date] = None
+    teste_ovulacao: Optional[str] = None
+    muco_cervical: Optional[str] = None
+    atividade_sexual: Optional[bool] = None
+    sintomas_json: Optional[Dict[str, Any]] = None
+    timestamp_coleta: datetime
+
+class CicloMenstrualResponse(CicloMenstrualCreate):
+    id: int
+    created_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+
+# --- Dashboard e Relatórios ---
+class DashboardResumoResponse(BaseModel):
+    """Resumo diário para dashboard"""
+    cliente_id: int
+    data: date
+    passos_hoje: Optional[int] = 0
+    ultimo_bpm: Optional[int] = None
+    ultima_pressao: Optional[str] = None  # "120/80"
+    horas_sono_ontem: Optional[float] = None
+    calorias_consumidas_hoje: Optional[int] = None
+    agua_ml_hoje: Optional[int] = None
+
+class RelatorioMensalResponse(BaseModel):
+    """Relatório mensal para análise de tendências"""
+    cliente_id: int
+    mes: int
+    ano: int
+    total_passos: int
+    media_bpm: Optional[float] = None
+    media_horas_sono: Optional[float] = None
+    peso_inicial: Optional[Decimal] = None
+    peso_final: Optional[Decimal] = None
+    total_atividades: int

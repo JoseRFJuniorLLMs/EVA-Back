@@ -26,7 +26,11 @@ from api import (
     routes_protocolos,
     routes_historico,
     routes_assinaturas,
-    routes_ia
+    routes_ia,
+    # Health Data Routes
+    routes_usuarios_saude,
+    routes_saude,
+    routes_dashboard_saude
 )
 
 load_dotenv()
@@ -62,21 +66,29 @@ app.add_middleware(
 
 
 # ======================
-# ROTAS
+# ROTAS (Todas com prefixo /api/v1/)
 # ======================
-app.include_router(routes_idosos.router, prefix="/idosos", tags=["Idosos"])
-app.include_router(routes_agendamentos.router, prefix="/agendamentos", tags=["Agendamentos"])
-app.include_router(routes_alertas.router, prefix="/alertas", tags=["Alertas"])
-app.include_router(routes_medicamentos.router, prefix="/medicamentos", tags=["Medicamentos"])
-app.include_router(routes_pagamentos.router, prefix="/pagamentos", tags=["Pagamentos"])
-app.include_router(routes_config.router, prefix="/config", tags=["Configurações"])
-app.include_router(routes_extras.router, prefix="/extras", tags=["Extras"])
-app.include_router(routes_orquestrador.router, prefix="/orquestrador", tags=["Orquestrador"])
-app.include_router(routes_protocolos.router, prefix="/protocolos", tags=["Protocolos"])
-app.include_router(routes_historico.router, prefix="/historico", tags=["Histórico"])
-app.include_router(routes_placeholders.router, tags=["Placeholders"])
-app.include_router(routes_assinaturas.router, prefix="/assinaturas", tags=["Assinaturas"])
-app.include_router(routes_ia.router, prefix="/ia", tags=["IA Avançada"])
+
+# Sistema de Cuidados com Idosos
+app.include_router(routes_idosos.router, prefix="/api/v1/idosos", tags=["Idosos"])
+app.include_router(routes_agendamentos.router, prefix="/api/v1/agendamentos", tags=["Agendamentos"])
+app.include_router(routes_alertas.router, prefix="/api/v1/alertas", tags=["Alertas"])
+app.include_router(routes_medicamentos.router, prefix="/api/v1/medicamentos", tags=["Medicamentos"])
+app.include_router(routes_pagamentos.router, prefix="/api/v1/pagamentos", tags=["Pagamentos"])
+app.include_router(routes_config.router, prefix="/api/v1/config", tags=["Configurações"])
+app.include_router(routes_extras.router, prefix="/api/v1/extras", tags=["Extras"])
+app.include_router(routes_orquestrador.router, prefix="/api/v1/orquestrador", tags=["Orquestrador"])
+app.include_router(routes_protocolos.router, prefix="/api/v1/protocolos", tags=["Protocolos"])
+app.include_router(routes_historico.router, prefix="/api/v1/historico", tags=["Histórico"])
+app.include_router(routes_placeholders.router, prefix="/api/v1", tags=["Placeholders"])
+app.include_router(routes_assinaturas.router, prefix="/api/v1/assinaturas", tags=["Assinaturas"])
+app.include_router(routes_ia.router, prefix="/api/v1/ia", tags=["IA Avançada"])
+
+# Sistema de Saúde e Bem-Estar
+app.include_router(routes_usuarios_saude.router, prefix="/api/v1/saude/usuarios", tags=["Saúde - Usuários"])
+app.include_router(routes_saude.router, prefix="/api/v1/saude", tags=["Saúde - Dados"])
+app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=["Saúde - Analytics"])
+
 
 
 # ======================
