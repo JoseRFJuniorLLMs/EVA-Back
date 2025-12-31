@@ -116,27 +116,45 @@ async def root():
     }
 
 
+# Lista global para armazenar logs em memória (Buffer Circular)
+from collections import deque
+LOG_BUFFER = deque(maxlen=500)
+
+class InMemoryHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            LOG_BUFFER.append(msg)
+        except Exception:
+            self.handleError(record)
+
+# Configurar logger para salvar no buffer também
+memory_handler = InMemoryHandler()
+memory_handler.setFormatter(logging.Formatter('%(asctime)s [%(levelname)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S'))
+logging.getLogger().addHandler(memory_handler)
+
 @app.get("/sistema/logs")
 async def obter_logs(linhas: int = Query(50, ge=1, le=500)):
     """
-    Rota para monitoramento técnico do serviço via terminal
+    Rota para monitoramento técnico - lê do buffer em memória (Cloud Compatible)
     """
     try:
-        # Executa o comando journalctl para ler o próprio serviço
-        # Importante: o usuário 'web2ajax' precisa ter permissão de ler logs
-        comando = ["journalctl", "-u", "eva-backend.service", "-n", str(linhas), "--no-pager"]
-        resultado = subprocess.check_output(comando).decode("utf-8")
+        # Pega as últimas N linhas do buffer
+        # Convertendo para lista e pegando as últimas 'linhas'
+        todos_logs = list(LOG_BUFFER)
+        logs_recentes = todos_logs[-linhas:] if linhas < len(todos_logs) else todos_logs
 
-        # Converte a saída em uma lista de strings (JSON format)
-        log_lista = resultado.strip().split("\n")
+        if not logs_recentes:
+            logs_recentes = [f"Aguardando novos logs... (Buffer vazio)"]
 
         return {
             "servico": "eva-backend",
             "status": "online",
-            "logs": log_lista
+            "ambiente": "Cloud Run / Docker",
+            "logs": logs_recentes
         }
     except Exception as e:
-        return {"erro": f"Falha ao ler logs: {str(e)}"}
+        return {"erro": f"Falha interna ao ler logs: {str(e)}"}
 
 
 # ==========================

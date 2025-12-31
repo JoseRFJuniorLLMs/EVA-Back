@@ -7,7 +7,7 @@ from firebase_admin import credentials, auth
 # ------------------------------
 # Configurações
 # ------------------------------
-DATABASE_URL = "postgres://postgres:Debian23%40@34.89.62.186:5432/eva?sslmode=disable"
+DATABASE_URL = "postgres://postgres:Debian23%40@34.39.249.108:5432/eva-db?sslmode=disable"
 FIREBASE_CREDENTIALS_PATH = os.path.join(os.path.dirname(__file__), "serviceAccountKey.json")
 
 IDOSO_ID = 1

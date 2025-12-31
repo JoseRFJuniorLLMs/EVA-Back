@@ -2,10 +2,10 @@
 # DATABASES
 # ===============================
 # Para operações assíncronas (FastAPI, chamadas de API)
-DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.89.62.186:5432/eva
+DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.39.249.108:5432/eva-db
 
 # Para operações síncronas (Scripts, Migrações Alembic, Celery)
-DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@34.89.62.186:5432/eva
+DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@34.39.249.108:5432/eva-db
 
 #Firebase Key
 FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json

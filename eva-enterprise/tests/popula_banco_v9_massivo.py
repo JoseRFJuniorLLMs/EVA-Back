@@ -18,8 +18,8 @@ fake = Faker('pt_BR')
 
 # Configurações do banco de dados
 DB_CONFIG = {
-    'host': '34.89.62.186',
-    'database': 'eva',
+    'host': '34.39.249.108',
+    'database': 'eva-db',
     'user': 'postgres',
     'password': 'Debian23@',
     'port': 5432
