@@ -65,6 +65,32 @@ class Idoso(Base):
     protocolos = relationship("ProtocoloAlerta", back_populates="idoso")
     consumos = relationship("FaturamentoConsumo", back_populates="idoso")
     timeline = relationship("Timeline", back_populates="idoso")
+    cuidadores = relationship("Cuidador", back_populates="idoso")
+
+
+class Cuidador(Base):
+    __tablename__ = "cuidadores"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    nome = Column(String(255), nullable=False)
+    cpf = Column(String(14))
+    telefone = Column(String(20), nullable=False)
+    email = Column(String(255))
+    parentesco = Column(String(100))
+    tipo_cuidador = Column(String(50), default='familiar')
+    eh_responsavel = Column(Boolean, default=False)
+    eh_contato_emergencia = Column(Boolean, default=False)
+    device_token = Column(Text)
+    ativo = Column(Boolean, default=True)
+    observacoes = Column(Text)
+    criado_em = Column(DateTime, default=datetime.datetime.now)
+    atualizado_em = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    prioridade = Column(Integer, default=1)
+    metodo_preferido = Column(String(20), default='push')
+    
+    # Relacionamento
+    idoso = relationship("Idoso", back_populates="cuidadores")
 
 
 class MembroFamilia(Base):

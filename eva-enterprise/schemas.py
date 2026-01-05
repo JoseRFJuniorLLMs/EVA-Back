@@ -582,3 +582,50 @@ class RelatorioMensalResponse(BaseModel):
     peso_inicial: Optional[Decimal] = None
     peso_final: Optional[Decimal] = None
     total_atividades: int
+
+
+# =====================================================
+# CUIDADORES SCHEMAS
+# =====================================================
+
+from pydantic import EmailStr, Field
+
+class CuidadorBase(BaseModel):
+    nome: str = Field(..., min_length=1, max_length=255)
+    cpf: Optional[str] = Field(None, pattern=r'^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$')
+    telefone: str = Field(..., min_length=10, max_length=20)
+    email: Optional[EmailStr] = None
+    parentesco: Optional[str] = Field(None, max_length=100)
+    tipo_cuidador: str = Field('familiar', pattern='^(familiar|profissional|voluntario)$')
+    eh_responsavel: bool = False
+    eh_contato_emergencia: bool = False
+    observacoes: Optional[str] = None
+    prioridade: int = Field(1, ge=1, le=10)
+    metodo_preferido: str = Field('push', pattern='^(push|sms|email)$')
+
+class CuidadorCreate(CuidadorBase):
+    idoso_id: int = Field(..., gt=0)
+
+class CuidadorUpdate(BaseModel):
+    nome: Optional[str] = Field(None, min_length=1, max_length=255)
+    cpf: Optional[str] = Field(None, pattern=r'^\d{3}\.\d{3}\.\d{3}-\d{2}$|^\d{11}$')
+    telefone: Optional[str] = Field(None, min_length=10, max_length=20)
+    email: Optional[EmailStr] = None
+    parentesco: Optional[str] = None
+    tipo_cuidador: Optional[str] = Field(None, pattern='^(familiar|profissional|voluntario)$')
+    eh_responsavel: Optional[bool] = None
+    eh_contato_emergencia: Optional[bool] = None
+    device_token: Optional[str] = None
+    ativo: Optional[bool] = None
+    observacoes: Optional[str] = None
+    prioridade: Optional[int] = Field(None, ge=1, le=10)
+    metodo_preferido: Optional[str] = Field(None, pattern='^(push|sms|email)$')
+
+class CuidadorResponse(CuidadorBase):
+    id: int
+    idoso_id: int
+    device_token: Optional[str] = None
+    ativo: bool
+    criado_em: datetime
+    atualizado_em: datetime
+    model_config = ConfigDict(from_attributes=True)
