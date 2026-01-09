@@ -30,7 +30,7 @@ async def seed_idosos(n=1000):
     async with AsyncSessionLocal() as db:
         print(f"🚀 Iniciando seed de {n} idosos no banco de dados...")
         
-        batch_size = 50
+        batch_size = 10000000
         total_batches = (n // batch_size) + (1 if n % batch_size > 0 else 0)
         
         for b in range(total_batches):

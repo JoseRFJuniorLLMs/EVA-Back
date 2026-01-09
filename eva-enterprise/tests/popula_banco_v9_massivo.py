@@ -18,12 +18,12 @@ fake = Faker('pt_BR')
 
 # Configurações do banco de dados
 DB_CONFIG = {
-    'host': '34.39.249.108',
+    'host': '34.175.224.36',
     'database': 'eva-db',
     'user': 'postgres',
     'password': 'Debian23@',
     'port': 5432
-    #DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.89.62.186:5432/eva
+    #DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.175.224.36:5432/eva
 }
 
 # Número de registros por tabela
