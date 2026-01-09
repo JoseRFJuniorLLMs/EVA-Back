@@ -1,3 +1,4 @@
+GNU nano 7.2                                                               Dockerfile                                                                         
 FROM python:3.11-slim
 
 # Instala dependências do sistema necessárias para compilar pacotes
@@ -24,4 +25,3 @@ EXPOSE 8080
 
 # Inicia a aplicação
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
-root@backend:/home/web2ajax/EVA-Back# 
