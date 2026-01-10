@@ -29,8 +29,8 @@ if [ $? -eq 0 ]; then
         --allow-unauthenticated \
         --port 8080 \
         --set-env-vars="API_BASE_URL=http://136.117.86.19:8000" \
-        --set-env-vars="DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.39.249.108:5432/eva-db" \
-        --set-env-vars="DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@34.39.249.108:5432/eva-db" \
+        --set-env-vars="DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.175.224.36:5432/eva-db" \
+        --set-env-vars="DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@34.175.224.36:5432/eva-db" \
         --set-env-vars="FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json"
         
     echo "🎉 Deploy finalizado!"
