@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EVA - Dashboard Atendente</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #E91E63, #F48FB1);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #E91E63;
+            margin-bottom: 10px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+        }
+
+        .status-dot.online {
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .info {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .info p {
+            margin: 5px 0;
+            color: #666;
+        }
+
+        .call-notification {
+            display: none;
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .call-notification.show {
+            display: block;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .call-notification h3 {
+            color: #E91E63;
+            margin-bottom: 15px;
+        }
+
+        .call-info {
+            margin: 10px 0;
+        }
+
+        .buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        button {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: scale(1.05);
+        }
+
+        .btn-answer {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-reject {
+            background: #f44336;
+            color: white;
+        }
+
+        .log {
+            margin-top: 20px;
+            max-height: 200px;
+            overflow-y: auto;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #E91E63;
+            padding-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎧 Dashboard Atendente EVA</h1>
+        
+        <div class="status">
+            <div class="status-dot" id="statusDot"></div>
+            <span id="statusText">Desconectado</span>
+        </div>
+
+        <div class="info">
+            <p><strong>Atendente ID:</strong> <span id="atendenteId">-</span></p>
+            <p><strong>WebSocket:</strong> <span id="wsStatus">Desconectado</span></p>
+        </div>
+
+        <div class="call-notification" id="callNotification">
+            <h3>📞 Chamada Entrando!</h3>
+            <div class="call-info">
+                <p><strong>Idoso:</strong> <span id="idosoNome">-</span></p>
+                <p><strong>Telefone:</strong> <span id="idosoTelefone">-</span></p>
+                <p><strong>Session ID:</strong> <span id="sessionId">-</span></p>
+            </div>
+            <div class="buttons">
+                <button class="btn-answer" onclick="answerCall()">✅ Atender</button>
+                <button class="btn-reject" onclick="rejectCall()">❌ Recusar</button>
+            </div>
+        </div>
+
+        <div class="log" id="log">
+            <div class="log-entry">Sistema iniciado...</div>
+        </div>
+    </div>
+
+    <script>
+        let ws = null;
+        let currentSessionId = null;
+        const ATENDENTE_ID = '1'; // TODO: Pegar do login
+        const WS_URL = 'ws://localhost:8000/ws/atendente/' + ATENDENTE_ID;
+
+        function addLog(message) {
+            const log = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        function connectWebSocket() {
+            addLog('Conectando ao WebSocket...');
+            
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                addLog('✅ Conectado ao servidor!');
+                document.getElementById('statusDot').classList.add('online');
+                document.getElementById('statusText').textContent = 'Online - Aguardando chamadas';
+                document.getElementById('atendenteId').textContent = ATENDENTE_ID;
+                document.getElementById('wsStatus').textContent = 'Conectado';
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                addLog(`📨 Mensagem recebida: ${data.type}`);
+
+                if (data.type === 'incoming_call') {
+                    showIncomingCall(data);
+                }
+            };
+
+            ws.onclose = () => {
+                addLog('❌ Desconectado do servidor');
+                document.getElementById('statusDot').classList.remove('online');
+                document.getElementById('statusText').textContent = 'Desconectado';
+                document.getElementById('wsStatus').textContent = 'Desconectado';
+                
+                // Tentar reconectar após 3 segundos
+                setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = (error) => {
+                addLog('⚠️ Erro no WebSocket');
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function showIncomingCall(data) {
+            currentSessionId = data.session_id;
+            document.getElementById('idosoNome').textContent = data.idoso_nome;
+            document.getElementById('idosoTelefone').textContent = data.idoso_telefone;
+            document.getElementById('sessionId').textContent = data.session_id;
+            document.getElementById('callNotification').classList.add('show');
+            
+            // Tocar som de chamada (opcional)
+            playRingtone();
+        }
+
+        function answerCall() {
+            addLog(`✅ Atendendo chamada ${currentSessionId}`);
+            document.getElementById('callNotification').classList.remove('show');
+            
+            // TODO: Iniciar WebRTC
+            alert(`Atendendo chamada ${currentSessionId}\n\nWebRTC será implementado em breve!`);
+        }
+
+        function rejectCall() {
+            addLog(`❌ Recusando chamada ${currentSessionId}`);
+            document.getElementById('callNotification').classList.remove('show');
+            currentSessionId = null;
+        }
+
+        function playRingtone() {
+            // Tocar som de notificação do navegador
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification('📞 Chamada Entrando!', {
+                    body: 'Um idoso está solicitando vídeo chamada',
+                    icon: '/path/to/icon.png'
+                });
+            }
+        }
+
+        // Solicitar permissão de notificação
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Conectar ao iniciar
+        connectWebSocket();
+    </script>
+</body>
+</html>

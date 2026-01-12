@@ -56,4 +56,42 @@ class Alerta(Base):
     criado_em = Column(DateTime, default=datetime.datetime.now)
 
 
+class Atendente(Base):
+    __tablename__ = "atendentes"
+    id = Column(Integer, primary_key=True)
+    nome = Column(String, nullable=False)
+    email = Column(String, unique=True, nullable=False)
+    status = Column(String, default="offline")  # online, offline, busy
+    websocket_id = Column(String)
+    last_seen = Column(DateTime, default=datetime.datetime.now)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+
+class VideoCall(Base):
+    __tablename__ = "video_calls"
+    id = Column(Integer, primary_key=True)
+    session_id = Column(String, unique=True, nullable=False)
+    idoso_id = Column(Integer, ForeignKey('idosos.id'))
+    atendente_id = Column(Integer, ForeignKey('atendentes.id'), nullable=True)
+    status = Column(String, default="waiting")  # waiting, ringing, active, ended
+    sdp_offer = Column(Text, nullable=True)
+    sdp_answer = Column(Text, nullable=True)
+    started_at = Column(DateTime, default=datetime.datetime.now)
+    answered_at = Column(DateTime, nullable=True)
+    ended_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+
+class AppLog(Base):
+    __tablename__ = "app_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    level = Column(String)  # INFO, WARNING, ERROR, FATAL
+    message = Column(Text)
+    details = Column(Text)  # Stacktrace ou JSON extra
+    device_info = Column(String)
+    app_version = Column(String)
+    user_cpf = Column(String, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.now)
+
+
 Base.metadata.create_all(bind=engine)

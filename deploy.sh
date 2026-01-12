@@ -1,4 +1,3 @@
-cat deploy.sh 
 #!/bin/bash
 
 # Configurações
@@ -27,15 +26,19 @@ if [ $? -eq 0 ]; then
         --region $REGION \
         --project $PROJECT_ID \
         --allow-unauthenticated \
-        --port 8080 \
-        --set-env-vars="API_BASE_URL=http://136.117.86.19:8000" \
-        --set-env-vars="DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@34.175.224.36:5432/eva-db" \
-        --set-env-vars="DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@34.175.224.36:5432/eva-db" \
-        --set-env-vars="FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json"
+        --port 8000 \
+        --set-env-vars="API_BASE_URL=http://127.0.0.1:8000" \
+        --set-env-vars="DATABASE_URL_ASYNC=postgresql+asyncpg://postgres:Debian23%40@127.0.0.1:5432/eva-db" \
+        --set-env-vars="DATABASE_URL_SYNC=postgresql+psycopg2://postgres:Debian23%40@127.0.0.1:5432/eva-db" \
+        --set-env-vars="FIREBASE_CREDENTIALS_PATH=serviceAccountKey.json" \
+        --set-env-vars="GOOGLE_API_KEY=\${GOOGLE_API_KEY}" \
+        --set-env-vars="TWILIO_ACCOUNT_SID=\${TWILIO_ACCOUNT_SID}" \
+        --set-env-vars="TWILIO_AUTH_TOKEN=\${TWILIO_AUTH_TOKEN}" \
+        --set-env-vars="TWILIO_PHONE_NUMBER=\${TWILIO_PHONE_NUMBER}" \
+        --set-env-vars="SERVICE_DOMAIN=104.248.219.200:8000"
         
     echo "🎉 Deploy finalizado!"
 else
     echo "❌ Erro no Build. Verifique os logs acima."
     exit 1
 fi
-root@aurora-vm:/home/jose/EVA-Back# 

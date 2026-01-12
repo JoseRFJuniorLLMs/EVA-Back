@@ -1,13 +1,14 @@
-import os, datetime, asyncio
-from fastapi import FastAPI, HTTPException
+import os, datetime, asyncio, uuid
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from twilio.rest import Client
-from database import SessionLocal, Agendamento, Alerta, Idoso, Familiar
+from database import SessionLocal, Agendamento, Alerta, Idoso, Familiar, Atendente, VideoCall
 from dotenv import load_dotenv
+from websocket_manager import manager
 
 load_dotenv()
 app = FastAPI()
@@ -53,6 +54,19 @@ class AgendamentoRequest(BaseModel):
     idoso_id: int
     hora_iso: str
     remedios: str
+
+
+class VideoCallRequest(BaseModel):
+    idoso_id: int
+
+
+class LogRequest(BaseModel):
+    level: str
+    message: str
+    details: Optional[str] = None
+    device_info: Optional[str] = None
+    app_version: Optional[str] = None
+    user_cpf: Optional[str] = None
 
 
 # ====================================
@@ -532,6 +546,147 @@ async def listar_alertas(tipo: str = None, limite: int = 50):
 
 
 # ====================================
+# ENDPOINTS PARA LOGS
+# ====================================
+
+@app.post("/logs/mobile")
+async def registrar_log_mobile(request: LogRequest):
+    """Registra logs de erro do app mobile"""
+    db = SessionLocal()
+    try:
+        # Importar aqui para evitar circular dependency se houvesse, mas aqui é seguro
+        from database import AppLog 
+        
+        novo_log = AppLog(
+            level=request.level,
+            message=request.message,
+            details=request.details,
+            device_info=request.device_info,
+            app_version=request.app_version,
+            user_cpf=request.user_cpf
+        )
+        
+        db.add(novo_log)
+        db.commit()
+        db.refresh(novo_log)
+        
+        print(f"📱 LOG MOBILE [{request.level}]: {request.message}")
+        
+        return {"status": "sucesso", "log_id": novo_log.id}
+    finally:
+        db.close()
+
+
+# ====================================
+# ENDPOINTS PARA SINALIZAÇÃO DE VÍDEO (WEBRTC)
+# ====================================
+
+class VideoSignal(BaseModel):
+    session_id: str
+    type: str  # 'offer', 'answer', 'candidate'
+    sdp: Optional[str] = None
+    candidate: Optional[str] = None
+    sdp_mid: Optional[str] = None
+    sdp_mline_index: Optional[int] = None
+    sender: str # 'mobile' ou 'web'
+
+@app.post("/video/signal")
+async def video_signaling(signal: VideoSignal):
+    """
+    Endpoint único para troca de mensagens de sinalização WebRTC.
+    O 'type' define a ação.
+    """
+    db = SessionLocal()
+    try:
+        # Importar models
+        from database import VideoCall, Atendente, Idoso
+        
+        # Buscar ou criar sessão
+        if signal.type == 'offer':
+            # Mobile iniciando
+            # Verificar se já existe (reconexão) ou criar nova
+            # Aqui assumimos simplificadamente que session_id é gerado pelo Mobile
+            # Mas idealmente o backend controlaria. Vamos confiar no ID do mobile por ora.
+            
+            # Limpar sessões antigas com mesmo ID se houver
+            old_session = db.query(VideoCall).filter(VideoCall.session_id == signal.session_id).first()
+            if old_session:
+                db.delete(old_session)
+                db.commit()
+            
+            new_call = VideoCall(
+                session_id=signal.session_id,
+                status='ringing',
+                sdp_offer=signal.sdp,
+                started_at=datetime.datetime.now()
+            )
+            db.add(new_call)
+            db.commit()
+            
+            print(f"📹 VIDEO OFFER recebido: {signal.session_id}")
+            return {"status": "offer_received", "action": "waiting_answer"}
+
+        elif signal.type == 'answer':
+            # Web respondendo
+            call = db.query(VideoCall).filter(VideoCall.session_id == signal.session_id).first()
+            if not call:
+                raise HTTPException(status_code=404, detail="Session not found")
+            
+            call.sdp_answer = signal.sdp
+            call.status = 'active'
+            call.answered_at = datetime.datetime.now()
+            db.commit()
+            
+            print(f"📹 VIDEO ANSWER recebido: {signal.session_id}")
+            return {"status": "answer_received", "action": "connecting"}
+
+        elif signal.type == 'candidate':
+            # Troca de ICE Candidates
+            # Por enquanto, apenas logamos ou poderíamos salvar em tabela separada
+            # mas o ideal para WebRTC simples é polling ou WebSocket.
+            # Como este endpoint é HTTP, ele serve para STORE-AND-FORWARD.
+            
+            # Se for polling, precisamos de uma tabela para guardar candidates
+            # Para simplificar agora, focaremos no SDP.
+            # ICE geralmente precisa de WebSocket para ser rápido.
+            print(f"❄️ ICE CANDIDATE ({signal.sender}): {signal.candidate[:20]}...")
+            return {"status": "candidate_received"}
+
+        else:
+             raise HTTPException(status_code=400, detail="Invalid signal type")
+
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Erro sinalização: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    finally:
+        db.close()
+
+@app.get("/video/session/{session_id}")
+async def get_session_status(session_id: str):
+    """
+    Mobile e Web fazem polling aqui para saber se o outro lado respondeu.
+    """
+    db = SessionLocal()
+    try:
+        from database import VideoCall
+        call = db.query(VideoCall).filter(VideoCall.session_id == session_id).first()
+        
+        if not call:
+             return {"status": "not_found"}
+        
+        return {
+            "session_id": call.session_id,
+            "status": call.status,
+            "sdp_offer": call.sdp_offer,  # Web lê isso
+            "sdp_answer": call.sdp_answer, # Mobile lê isso
+            "has_answer": call.sdp_answer is not None
+        }
+    finally:
+        db.close()
+
+
+# ====================================
 # ENDPOINTS GERAIS
 # ====================================
 
@@ -628,6 +783,102 @@ async def twiml_endpoint(agendamento_id: int = None):
 </Response>"""
 
     return Response(content=xml_response, media_type="application/xml")
+
+
+# ====================================
+# ENDPOINTS PARA VÍDEO CHAMADAS
+# ====================================
+
+@app.post("/video-calls/start")
+async def start_video_call(request: VideoCallRequest):
+    """Idoso inicia uma vídeo chamada"""
+    db = SessionLocal()
+    try:
+        # Buscar idoso
+        idoso = db.query(Idoso).filter(Idoso.id == request.idoso_id).first()
+        if not idoso:
+            raise HTTPException(status_code=404, detail="Idoso não encontrado")
+        
+        # Criar sessão de vídeo chamada
+        session_id = str(uuid.uuid4())
+        nova_chamada = VideoCall(
+            session_id=session_id,
+            idoso_id=idoso.id,
+            status="waiting"
+        )
+        
+        db.add(nova_chamada)
+        db.commit()
+        db.refresh(nova_chamada)
+        
+        print(f"📞 Nova vídeo chamada iniciada:")
+        print(f"   Session ID: {session_id}")
+        print(f"   Idoso: {idoso.nome} (ID: {idoso.id})")
+        
+        # Buscar atendente online
+        atendente = db.query(Atendente).filter(Atendente.status == "online").first()
+        
+        if atendente:
+            # Notificar atendente via WebSocket
+            await manager.send_personal_message({
+                "type": "incoming_call",
+                "session_id": session_id,
+                "idoso_id": idoso.id,
+                "idoso_nome": idoso.nome,
+                "idoso_telefone": idoso.telefone
+            }, atendente.websocket_id)
+            
+            print(f"   ✅ Atendente {atendente.nome} notificado")
+        else:
+            print(f"   ⚠️ Nenhum atendente online disponível")
+        
+        return {
+            "success": True,
+            "session_id": session_id,
+            "status": "waiting",
+            "atendente_disponivel": atendente is not None
+        }
+    
+    finally:
+        db.close()
+
+
+@app.websocket("/ws/atendente/{atendente_id}")
+async def websocket_atendente(websocket: WebSocket, atendente_id: str):
+    """WebSocket para atendentes receberem notificações de chamadas"""
+    db = SessionLocal()
+    try:
+        # Conectar WebSocket
+        await manager.connect(websocket, atendente_id)
+        
+        # Atualizar status do atendente para online
+        atendente = db.query(Atendente).filter(Atendente.id == int(atendente_id)).first()
+        if atendente:
+            atendente.status = "online"
+            atendente.websocket_id = atendente_id
+            atendente.last_seen = datetime.datetime.now()
+            db.commit()
+            print(f"✅ Atendente {atendente.nome} agora está ONLINE")
+        
+        # Manter conexão aberta
+        while True:
+            data = await websocket.receive_text()
+            # Processar mensagens do atendente se necessário
+            print(f"📨 Mensagem do atendente {atendente_id}: {data}")
+    
+    except WebSocketDisconnect:
+        manager.disconnect(atendente_id)
+        
+        # Atualizar status para offline
+        if atendente:
+            atendente.status = "offline"
+            atendente.websocket_id = None
+            atendente.last_seen = datetime.datetime.now()
+            db.commit()
+            print(f"❌ Atendente {atendente.nome} agora está OFFLINE")
+    
+    finally:
+        db.close()
 
 
 @app.get("/")
