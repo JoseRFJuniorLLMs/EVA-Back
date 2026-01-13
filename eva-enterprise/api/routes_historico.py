@@ -4,8 +4,41 @@ from database.connection import get_db
 from database.repositories.historico_repo import HistoricoRepository
 from schemas import HistoricoResponse
 from typing import List, Optional
+from pydantic import BaseModel
 
 router = APIRouter()
+
+class RegistroAtendimento(BaseModel):
+    session_id: str
+    operator_id: str
+    operator_email: Optional[str] = None
+    idoso_id: Optional[int] = 1 # Default para MVP
+    duration: Optional[int] = 0
+
+@router.post("/registrar_atendimento")
+async def registrar_atendimento(dados: RegistroAtendimento, db: AsyncSession = Depends(get_db)):
+    """Registra manualmente um atendimento de vídeo na timeline"""
+    from sqlalchemy import text
+    from datetime import datetime
+    
+    # Inserir na Timeline
+    query = text("""
+        INSERT INTO timeline (idoso_id, tipo, subtipo, titulo, descricao, data, metadados)
+        VALUES (:idoso_id, 'interacao', 'video_chamada', 'Atendimento Realizado', :desc, :data, :meta)
+    """)
+    
+    descricao = f"Atendimento realizado por {dados.operator_email or dados.operator_id}."
+    metadados = f'{{"session_id": "{dados.session_id}", "duration": {dados.duration}}}'
+    
+    await db.execute(query, {
+        "idoso_id": dados.idoso_id,
+        "desc": descricao,
+        "data": datetime.now(),
+        "meta": metadados
+    })
+    
+    await db.commit()
+    return {"status": "success", "message": "Atendimento registrado na timeline"}
 
 @router.get("/timeline")
 async def get_all_timeline(db: AsyncSession = Depends(get_db)):
