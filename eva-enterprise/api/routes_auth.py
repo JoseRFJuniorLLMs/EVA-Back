@@ -25,7 +25,7 @@ class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
     password: str
-    role: str = "viewer" # Default minimal role
+    role: str = "cuidador"  # Default role that matches DB constraint
 
 class GoogleLoginRequest(BaseModel):
     token: str
@@ -91,8 +91,8 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     # 3. Insert
     # Only allow safe roles for public registration
-    safe_role = "viewer" 
-    if req.role in ["attendant", "viewer", "family"]:
+    safe_role = "cuidador"  # Default safe role
+    if req.role in ["cuidador", "profissional"]:  # Don't allow admin via public registration
         safe_role = req.role
 
     query = text("""
