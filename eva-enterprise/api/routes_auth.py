@@ -19,12 +19,12 @@ class Token(BaseModel):
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    senha_hash: str
 
 class RegisterRequest(BaseModel):
     name: str
     email: EmailStr
-    password: str
+    senha_hash: str
     role: str = "cuidador"  # Default role that matches DB constraint
 
 class GoogleLoginRequest(BaseModel):
@@ -43,17 +43,17 @@ async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Dep
     if not user or not user["password_hash"]:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Credenciais inválidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
         
     s_hash = user["password_hash"].strip()
     
     # Verify password hash
-    if not verify_password(form_data.password, s_hash):
+    if not verify_password(form_data.senha_hash, s_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Credenciais inválidas",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -87,7 +87,7 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
 
     # 2. Hash Password
-    pwd_hash = get_password_hash(req.password)
+    pwd_hash = get_password_hash(req.senha_hash)
 
     # 3. Insert
     # Only allow safe roles for public registration
