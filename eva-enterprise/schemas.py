@@ -399,8 +399,8 @@ class UsuarioUpdate(BaseModel):
 
 class UsuarioResponse(UsuarioBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    criado_em: datetime
+    atualizado_em: datetime
     model_config = ConfigDict(from_attributes=True)
 
 

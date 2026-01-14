@@ -524,6 +524,7 @@ class InteracoesRisco(Base):
 # HEALTH DATA MODELS (Sistema de Monitoramento de Saúde)
 # =====================================================
 
+
 class Usuario(Base):
     """Usuários do sistema de monitoramento de saúde"""
     __tablename__ = "usuarios"
@@ -531,9 +532,22 @@ class Usuario(Base):
     id = Column(Integer, primary_key=True)
     nome = Column(String(255), nullable=False)
     email = Column(String(255), unique=True)
-    matricula = Column(String(50))
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    senha_hash = Column(String(255))
+    telefone = Column(String(50))
+    tipo = Column(String(50), default='viewer')
+    ativo = Column(Boolean, default=True)
+    email_verificado = Column(Boolean, default=False)
+    cpf = Column(String(20))
+    data_nascimento = Column(Date)
+    
+    matricula = Column(String(50)) # Keeping this if needed for legacy or specific business logic
+    
+    criado_em = Column(DateTime, default=datetime.datetime.utcnow)
+    atualizado_em = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    
+    # Aliases for compatibility with old code if strictly necessary, but better to migrate usage
+    # created_at = criado_em 
+    # updated_at = atualizado_em
     
     # Relacionamentos
     atividades = relationship("Atividade", back_populates="usuario", cascade="all, delete-orphan")
