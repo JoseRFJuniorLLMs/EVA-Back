@@ -49,7 +49,11 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
         raise credentials_exception
     
     # Check DB
-    result = await db.execute("SELECT id, name, email, role, active FROM users WHERE email = :email", {"email": email})
+    # Fix: Use 'usuarios' table (Portugues schema) matches routes_auth.py
+    result = await db.execute(
+        "SELECT id, nome as name, email, tipo as role, ativo as active FROM usuarios WHERE email = :email", 
+        {"email": email}
+    )
     user = result.mappings().first()
     
     if user is None:
