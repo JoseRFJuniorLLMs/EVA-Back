@@ -34,7 +34,7 @@ class GoogleLoginRequest(BaseModel):
 async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Depends(get_db)):
     # 1. Fetch User
     result = await db.execute(
-        text("SELECT id, email, password_hash, role, active FROM users WHERE email = :email"),
+        text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
         {"email": form_data.email}
     )
     user = result.mappings().first()
@@ -70,7 +70,7 @@ async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Dep
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
     # 1. Check existing
     result = await db.execute(
-        text("SELECT id FROM users WHERE email = :email"),
+        text("SELECT id FROM usuarios WHERE email = :email"),
         {"email": req.email}
     )
     if result.first():
@@ -86,9 +86,9 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
         safe_role = req.role
 
     query = text("""
-        INSERT INTO users (name, email, password_hash, role) 
+        INSERT INTO usuarios (nome, email, senha_hash, tipo) 
         VALUES (:name, :email, :ph, :role) 
-        RETURNING id, email, role
+        RETURNING id, email, tipo as role
     """)
     result = await db.execute(query, {
         "name": req.name,
@@ -119,7 +119,7 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
 
         # 2. Check DB
         result = await db.execute(
-            text("SELECT id, email, role, active FROM users WHERE email = :email"),
+            text("SELECT id, email, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
             {"email": email}
         )
         user = result.mappings().first()
@@ -130,9 +130,9 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
         if not user:
             # Register new user from Google
             query = text("""
-                INSERT INTO users (name, email, google_id, photo_url, role)
+                INSERT INTO usuarios (nome, email, google_id, foto_url, tipo)
                 VALUES (:name, :email, :gid, :url, 'viewer')
-                RETURNING id, role
+                RETURNING id, tipo as role
             """)
             res = await db.execute(query, {
                 "name": name,
@@ -152,7 +152,7 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
             
             # Update google_id if missing
             await db.execute(
-                text("UPDATE users SET google_id = :gid, photo_url = :url WHERE id = :uid"),
+                text("UPDATE usuarios SET google_id = :gid, foto_url = :url WHERE id = :uid"),
                 {"gid": google_id, "url": picture, "uid": user_id}
             )
             await db.commit()
