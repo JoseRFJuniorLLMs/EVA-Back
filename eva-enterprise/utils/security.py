@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Union
 import os
 from jose import JWTError, jwt
-from passlib.context import CryptContext
+import bcrypt  # Using bcrypt directly instead of passlib
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,23 +13,26 @@ SECRET_KEY = os.getenv("SECRET_KEY", "eva_secret_key_change_me_in_production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 # 24 hours
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
-def verify_password(plain_password, hashed_password):
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verify password using bcrypt directly"""
     try:
-        result = pwd_context.verify(plain_password, hashed_password)
-        return result
+        # Convert strings to bytes
+        password_bytes = plain_password.encode('utf-8')
+        hash_bytes = hashed_password.encode('utf-8')
+        return bcrypt.checkpw(password_bytes, hash_bytes)
     except Exception as e:
-        # Log the actual error for debugging
         import logging
         logging.error(f"Password verification error: {e}")
-        # If it's truly a bcrypt hash, this shouldn't fail
-        # Return False to reject login rather than falling back to plaintext
         return False
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
+def get_password_hash(password: str) -> str:
+    """Hash password using bcrypt directly"""
+    password_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(password_bytes, salt)
+    return hashed.decode('utf-8')
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()

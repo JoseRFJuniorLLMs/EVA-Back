@@ -35,10 +35,9 @@ email-validator==2.2.0
 alembic==1.13.3
 loguru==0.7.2
 
-# Autenticação (opcional)
+# Autenticação
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1 # Fix for passlib compatibility attribute error
+bcrypt==4.0.1
 
 # Agendamento de tarefas
 apscheduler==3.10.4
