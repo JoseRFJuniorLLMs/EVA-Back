@@ -18,9 +18,14 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def verify_password(plain_password, hashed_password):
     try:
-        return pwd_context.verify(plain_password, hashed_password)
+        result = pwd_context.verify(plain_password, hashed_password)
+        return result
     except Exception as e:
-        # If hash is unknown (e.g. plaintext), return False to allow fallback logic in routes
+        # Log the actual error for debugging
+        import logging
+        logging.error(f"Password verification error: {e}")
+        # If it's truly a bcrypt hash, this shouldn't fail
+        # Return False to reject login rather than falling back to plaintext
         return False
 
 def get_password_hash(password):

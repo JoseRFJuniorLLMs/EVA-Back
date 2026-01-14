@@ -49,16 +49,13 @@ async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Dep
         
     s_hash = user["password_hash"].strip()
     
-    # Verify hash OR plaintext (fallback for legacy/migrated users)
+    # Verify password hash
     if not verify_password(form_data.password, s_hash):
-        # Fallback: Check if stored password is plain text
-        if s_hash != form_data.password:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Incorrect username or password",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        # TODO: Ideally re-hash here if plaintext matched
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if not user["active"]:
         raise HTTPException(status_code=400, detail="Inactive user")
