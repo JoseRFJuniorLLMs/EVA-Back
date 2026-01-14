@@ -17,7 +17,11 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        # If hash is unknown (e.g. plaintext), return False to allow fallback logic in routes
+        return False
 
 def get_password_hash(password):
     return pwd_context.hash(password)
