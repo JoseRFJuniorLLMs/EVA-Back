@@ -4,7 +4,7 @@ import logging
 import subprocess
 from dotenv import load_dotenv
 
-# FastAPI
+# FastAPI Mod
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 
