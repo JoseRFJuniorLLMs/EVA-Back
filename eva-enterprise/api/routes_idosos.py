@@ -66,12 +66,72 @@ async def list_idosos(
         db: AsyncSession = Depends(get_db),
         current_user: dict = Depends(get_current_user)
 ):
-    """Lista idosos. Regra: se algum filtro for passado, retorna 1. Se não, retorna 10 por padrão."""
+    """
+    Lista idosos com base no perfil do usuário:
+    - Admin/Profissional: Vê TODOS os idosos
+    - Cuidador/Família: Vê APENAS seus idosos vinculados
+    """
+    from sqlalchemy import text
+    
     if limit is None:
         limit = 1 if (nome or cpf or telefone) else 10
 
-    repo = IdosoRepository(db)
-    return await repo.get_all(skip=skip, limit=limit, nome=nome, cpf=cpf, telefone=telefone)
+    user_id = current_user.get('user_id')
+    user_role = current_user.get('role', 'cuidador')  # Default: cuidador
+    
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Usuário não autenticado")
+    
+    # Admin e Profissional veem TUDO
+    if user_role in ['admin', 'profissional']:
+        query = text("""
+            SELECT i.*
+            FROM idosos i
+            WHERE i.ativo = true
+            AND (:nome IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
+            AND (:cpf IS NULL OR i.cpf = :cpf)
+            AND (:telefone IS NULL OR i.telefone = :telefone)
+            ORDER BY i.id DESC
+            LIMIT :limit OFFSET :skip
+        """)
+        
+        params = {
+            "nome": nome,
+            "nome_pattern": f"%{nome}%" if nome else None,
+            "cpf": cpf,
+            "telefone": telefone,
+            "limit": limit,
+            "skip": skip
+        }
+    else:
+        # Cuidador/Família veem APENAS seus idosos
+        query = text("""
+            SELECT DISTINCT i.*
+            FROM idosos i
+            INNER JOIN usuarios_idosos ui ON ui.idoso_id = i.id
+            WHERE ui.usuario_id = :user_id
+            AND i.ativo = true
+            AND (:nome IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
+            AND (:cpf IS NULL OR i.cpf = :cpf)
+            AND (:telefone IS NULL OR i.telefone = :telefone)
+            ORDER BY i.id DESC
+            LIMIT :limit OFFSET :skip
+        """)
+        
+        params = {
+            "user_id": user_id,
+            "nome": nome,
+            "nome_pattern": f"%{nome}%" if nome else None,
+            "cpf": cpf,
+            "telefone": telefone,
+            "limit": limit,
+            "skip": skip
+        }
+    
+    result = await db.execute(query, params)
+    idosos = result.mappings().all()
+    
+    return [dict(idoso) for idoso in idosos]
 
 
 @router.get("/{id}", response_model=IdosoResponse)

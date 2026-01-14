@@ -139,3 +139,194 @@ async def create_sinal_vital(sinal: SinaisVitaisCreate, db: AsyncSession = Depen
 async def get_relatorio_sinais(idoso_id: int, db: AsyncSession = Depends(get_db)):
     repo = SinaisVitaisRepository(db)
     return await repo.get_weekly_report(idoso_id)
+
+# --- Catálogo Farmacêutico ---
+
+@router.get("/catalogo/search")
+async def search_catalogo(
+    q: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Busca medicamentos no catálogo farmacêutico.
+    Retorna lista de medicamentos com informações básicas.
+    """
+    from sqlalchemy import text
+    
+    query = text("""
+        SELECT 
+            id,
+            nome_oficial,
+            classe_terapeutica,
+            apresentacao_padrao,
+            dose_maxima_mg,
+            alerta_renal
+        FROM catalogo_farmaceutico
+        WHERE LOWER(nome_oficial) LIKE LOWER(:search)
+        LIMIT 10
+    """)
+    
+    result = await db.execute(query, {"search": f"%{q}%"})
+    medicamentos = result.mappings().all()
+    
+    # Para cada medicamento, buscar riscos geriátricos
+    output = []
+    for med in medicamentos:
+        riscos_query = text("""
+            SELECT tipo, ativo
+            FROM riscos_geriatricos
+            WHERE catalogo_id = :catalogo_id
+        """)
+        riscos_result = await db.execute(riscos_query, {"catalogo_id": med['id']})
+        riscos = [{"tipo": r['tipo'], "ativo": r['ativo']} for r in riscos_result.mappings().all()]
+        
+        output.append({
+            "id": med['id'],
+            "nome_oficial": med['nome_oficial'],
+            "classe_terapeutica": med['classe_terapeutica'] or '',
+            "apresentacao_padrao": med['apresentacao_padrao'] or '',
+            "dose_maxima_mg": med['dose_maxima_mg'],
+            "alerta_renal": med['alerta_renal'],
+            "riscos": riscos
+        })
+    
+    return output
+
+@router.get("/catalogo/{catalogo_id}")
+async def get_catalogo_info(
+    catalogo_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Obtém informações detalhadas de um medicamento do catálogo.
+    """
+    from sqlalchemy import text
+    
+    query = text("""
+        SELECT 
+            id,
+            nome_oficial,
+            classe_terapeutica,
+            apresentacao_padrao,
+            dose_maxima_mg,
+            alerta_renal
+        FROM catalogo_farmaceutico
+        WHERE id = :catalogo_id
+    """)
+    
+    result = await db.execute(query, {"catalogo_id": catalogo_id})
+    med = result.mappings().first()
+    
+    if not med:
+        raise HTTPException(status_code=404, detail="Medicamento não encontrado no catálogo")
+    
+    # Buscar riscos geriátricos
+    riscos_query = text("""
+        SELECT tipo, ativo, descricao
+        FROM riscos_geriatricos
+        WHERE catalogo_id = :catalogo_id
+    """)
+    riscos_result = await db.execute(riscos_query, {"catalogo_id": catalogo_id})
+    riscos = [{"tipo": r['tipo'], "ativo": r['ativo'], "descricao": r['descricao']} 
+              for r in riscos_result.mappings().all()]
+    
+    # Buscar referências de dosagem
+    dosagem_query = text("""
+        SELECT dose_maxima_mg, alerta_renal
+        FROM referencia_dosagem
+        WHERE catalogo_id = :catalogo_id
+        LIMIT 1
+    """)
+    dosagem_result = await db.execute(dosagem_query, {"catalogo_id": catalogo_id})
+    dosagem = dosagem_result.mappings().first()
+    
+    return {
+        "id": med['id'],
+        "nome_oficial": med['nome_oficial'],
+        "classe_terapeutica": med['classe_terapeutica'] or '',
+        "apresentacao_padrao": med['apresentacao_padrao'] or '',
+        "dose_maxima_mg": dosagem['dose_maxima_mg'] if dosagem else med['dose_maxima_mg'],
+        "alerta_renal": dosagem['alerta_renal'] if dosagem else med['alerta_renal'],
+        "riscos": riscos
+    }
+
+@router.post("/verificar-interacoes")
+async def check_interacoes(
+    data: dict,
+    db: AsyncSession = Depends(get_db),
+    current_user: dict = Depends(get_current_user)
+):
+    """
+    Verifica interações medicamentosas entre o novo medicamento
+    e os medicamentos atuais do idoso.
+    """
+    from sqlalchemy import text
+    
+    idoso_id = data.get('idoso_id')
+    novo_medicamento = data.get('novo_medicamento')
+    
+    if not idoso_id or not novo_medicamento:
+        raise HTTPException(status_code=400, detail="idoso_id e novo_medicamento são obrigatórios")
+    
+    # 1. Buscar medicamentos atuais do idoso
+    medicamentos_query = text("""
+        SELECT m.nome, m.catalogo_ref_id
+        FROM medicamentos m
+        WHERE m.idoso_id = :idoso_id
+        AND m.ativo = true
+    """)
+    result = await db.execute(medicamentos_query, {"idoso_id": idoso_id})
+    medicamentos_atuais = result.mappings().all()
+    
+    # 2. Buscar ID do novo medicamento no catálogo
+    novo_med_query = text("""
+        SELECT id FROM catalogo_farmaceutico
+        WHERE LOWER(nome_oficial) LIKE LOWER(:nome)
+        LIMIT 1
+    """)
+    novo_result = await db.execute(novo_med_query, {"nome": f"%{novo_medicamento}%"})
+    novo_med = novo_result.mappings().first()
+    
+    if not novo_med:
+        return []  # Medicamento não encontrado no catálogo, sem interações
+    
+    novo_catalogo_id = novo_med['id']
+    
+    # 3. Verificar interações
+    interacoes = []
+    for med_atual in medicamentos_atuais:
+        if not med_atual['catalogo_ref_id']:
+            continue
+            
+        # Buscar interação na tabela interacoes_risco
+        interacao_query = text("""
+            SELECT 
+                ir.nivel_perigo,
+                ir.descricao,
+                c1.nome_oficial as med_a,
+                c2.nome_oficial as med_b
+            FROM interacoes_risco ir
+            JOIN catalogo_farmaceutico c1 ON c1.id = ir.catalogo_id_a
+            JOIN catalogo_farmaceutico c2 ON c2.id = ir.catalogo_id_b
+            WHERE 
+                (ir.catalogo_id_a = :cat_a AND ir.catalogo_id_b = :cat_b)
+                OR (ir.catalogo_id_a = :cat_b AND ir.catalogo_id_b = :cat_a)
+        """)
+        
+        interacao_result = await db.execute(
+            interacao_query,
+            {"cat_a": med_atual['catalogo_ref_id'], "cat_b": novo_catalogo_id}
+        )
+        interacao = interacao_result.mappings().first()
+        
+        if interacao:
+            interacoes.append({
+                "medicamento_a": interacao['med_a'],
+                "medicamento_b": interacao['med_b'],
+                "nivel_perigo": interacao['nivel_perigo'],
+                "descricao": interacao['descricao']
+            })
+    
+    return interacoes

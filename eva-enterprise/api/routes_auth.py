@@ -177,5 +177,117 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
         raise HTTPException(status_code=401, detail="Invalid Google Token")
 
 @router.get("/me")
-async def read_users_me(current_user: dict = Depends(get_current_user)):
-    return current_user
+async def get_current_user_info(
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Retorna informações do usuário logado
+    """
+    
+    user_id = current_user.get('user_id')
+    
+    query = text("""
+        SELECT id, nome, email, telefone, tipo, cpf, data_nascimento, ativo
+        FROM usuarios
+        WHERE id = :user_id
+    """)
+    
+    result = await db.execute(query, {"user_id": user_id})
+    user = result.mappings().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return dict(user)
+
+@router.put("/profile")
+async def update_profile(
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Atualiza perfil do usuário logado
+    """
+    
+    user_id = current_user.get('user_id')
+    
+    # Campos permitidos para atualização
+    allowed_fields = ['nome', 'telefone', 'cpf', 'data_nascimento']
+    update_fields = []
+    params = {'user_id': user_id}
+    
+    for field in allowed_fields:
+        if field in data:
+            update_fields.append(f"{field} = :{field}")
+            params[field] = data[field]
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="Nenhum campo para atualizar")
+    
+    query = text(f"""
+        UPDATE usuarios
+        SET {', '.join(update_fields)}, atualizado_em = NOW()
+        WHERE id = :user_id
+        RETURNING id, nome, email, telefone, tipo, cpf, data_nascimento
+    """)
+    
+    result = await db.execute(query, params)
+    await db.commit()
+    
+    updated_user = result.mappings().first()
+    
+    if not updated_user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    return dict(updated_user)
+
+@router.patch("/change-password")
+async def change_password(
+    data: dict,
+    current_user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Altera senha do usuário logado
+    """
+    
+    user_id = current_user.get('user_id')
+    old_password = data.get('old_password')
+    new_password = data.get('new_password')
+    
+    if not old_password or not new_password:
+        raise HTTPException(status_code=400, detail="Senhas antiga e nova são obrigatórias")
+    
+    # Buscar senha atual
+    query = text("""
+        SELECT senha_hash
+        FROM usuarios
+        WHERE id = :user_id
+    """)
+    
+    result = await db.execute(query, {"user_id": user_id})
+    user = result.mappings().first()
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    # Verificar senha antiga
+    if not bcrypt.checkpw(old_password.encode('utf-8'), user['senha_hash'].encode('utf-8')):
+        raise HTTPException(status_code=401, detail="Senha atual incorreta")
+    
+    # Hash da nova senha
+    new_hash = bcrypt.hashpw(new_password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+    
+    # Atualizar senha
+    update_query = text("""
+        UPDATE usuarios
+        SET senha_hash = :new_hash, atualizado_em = NOW()
+        WHERE id = :user_id
+    """)
+    
+    await db.execute(update_query, {"user_id": user_id, "new_hash": new_hash})
+    await db.commit()
+    
+    return {"message": "Senha alterada com sucesso"}
