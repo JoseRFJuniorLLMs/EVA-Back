@@ -1,6 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, delete
-from ..models import Alerta, Idoso, PsicologiaInsight, TopicoAfetivo
+from sqlalchemy import select, delete
+from ..models import Alerta, Idoso, Cuidador, PsicologiaInsight, TopicoAfetivo
+from services.notification_service import NotificationService
 from typing import List, Optional
 import datetime
 
@@ -34,7 +36,44 @@ class AlertaRepository:
         self.db.add(alerta)
         await self.db.commit()
         await self.db.refresh(alerta)
+        
+        # Enviar notificações push se for relevante
+        if severidade in ['critica', 'alta'] or "RISCO" in severidade.upper():
+            await self._notify_family(alerta)
+            
         return alerta
+
+    async def _notify_family(self, alerta: Alerta):
+        """Busca tokens de dispositivos e envia push"""
+        try:
+            # 1. Buscar cuidadores/familiares com token ativo
+            query = select(Cuidador).where(
+                Cuidador.idoso_id == alerta.idoso_id,
+                Cuidador.ativo == True,
+                Cuidador.device_token.isnot(None)
+            )
+            result = await self.db.execute(query)
+            cuidadores = result.scalars().all()
+            
+            tokens = [c.device_token for c in cuidadores if c.device_token]
+            
+            # TODO: Buscar também na tabela Familiares se tiver token lá
+            
+            if tokens:
+                notifier = NotificationService()
+                notifier.send_multicast_notification(
+                    tokens=tokens,
+                    title=f"🚨 EVA Alerta - {alerta.severidade.upper()}",
+                    body=alerta.mensagem[:100], # Trucar msg muito longa
+                    data={
+                        "alerta_id": str(alerta.id),
+                        "tipo": alerta.tipo,
+                        "idoso_id": str(alerta.idoso_id),
+                        "click_action": "FLUTTER_NOTIFICATION_CLICK"
+                    }
+                )
+        except Exception as e:
+            print(f"Erro ao enviar notificação push: {e}")
 
     async def get_by_id(self, id: int) -> Optional[dict]:
         query = select(Alerta, Idoso.nome.label("idoso_nome"), Idoso.foto_url, Idoso.telefone).join(Idoso, Alerta.idoso_id == Idoso.id).filter(Alerta.id == id)

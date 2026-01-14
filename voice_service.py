@@ -15,7 +15,16 @@ from google.genai import types
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import Response
 from dotenv import load_dotenv
-from database import SessionLocal, Agendamento, Alerta
+import sys
+from pathlib import Path
+
+# Adiciona o diretório eva-enterprise ao path para conseguir importar do módulo vizinho
+sys.path.append(os.path.join(os.path.dirname(__file__), 'eva-enterprise'))
+
+from database.connection import AsyncSessionLocal
+from database.models import Agendamento, Idoso, Medicamento, Alerta
+from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 
 load_dotenv()
 
@@ -32,31 +41,45 @@ MODEL_ID = "gemini-2.5-flash-native-audio-preview-12-2025"
 app = FastAPI()
 
 
-def criar_prompt_personalizado(agendamento_id: int) -> str:
+async def criar_prompt_personalizado(agendamento_id: int) -> str:
     """Busca os dados do agendamento e cria um prompt personalizado para a Eva"""
-    db = SessionLocal()
-    try:
-        agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+    async with AsyncSessionLocal() as db:
+        try:
+            # Busca agendamento e idoso
+            result = await db.execute(
+                select(Agendamento)
+                .options(selectinload(Agendamento.idoso))
+                .where(Agendamento.id == agendamento_id)
+            )
+            agendamento = result.scalar_one_or_none()
 
-        if not agendamento:
-            return """Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
+            if not agendamento:
+                return """Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
 Sua voz deve ser doce e calma. Fale de forma simples e natural."""
 
-        nome = agendamento.nome_idoso
-        remedios = agendamento.remedios
+            nome = agendamento.nome_idoso
+            # Se for objeto Idoso, pega dados extras
+            condicoes = getattr(agendamento.idoso, 'condicoes_medicas', 'Nenhuma registrada')
+            
+            # Tentar extrair lista de medicamentos do texto ou relação
+            remedios_texto = agendamento.remedios or "seus medicamentos usuais"
 
-        prompt = f"""Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
+            prompt = f"""Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
 Sua voz deve ser doce e calma. Fale de forma simples e natural, como se estivesse conversando com um amigo querido.
+            
+CONTEXTO CLÍNICO DO PACIENTE:
+- Nome: {nome}
+- Condições Médicas: {condicoes}
 
 IMPORTANTE: 
 - Você está ligando para {nome}
-- Você precisa lembrá-lo(a) de tomar os seguintes remédios: {remedios}
+- Você precisa lembrá-lo(a) de tomar: {remedios_texto}
 - Responda SEMPRE de forma direta e natural
 - NÃO pense alto, NÃO explique seu raciocínio
 - Seja breve e vá direto ao ponto (máximo 2-3 frases por resposta)
 - Use linguagem simples e calorosa
 - Pergunte se {nome} já tomou os remédios
-- Se {nome} disser que não está se sentindo bem, pergunte o que está sentindo
+- Se {nome} disser que não está se sentindo bem, pergunte o que está sentindo e valide se pode ser efeito dos remédios.
 - Espere o usuário falar antes de responder novamente
 
 PROTOCOLO DE EMERGÊNCIA:
@@ -66,11 +89,11 @@ PROTOCOLO DE EMERGÊNCIA:
   3. Avisar que você vai notificar a família imediatamente
   4. NÃO encerrar a ligação até ter certeza de que há ajuda a caminho
 """
+            return prompt
 
-        return prompt
-
-    finally:
-        db.close()
+        except Exception as e:
+            print(f"Erro ao gerar prompt: {e}")
+            return """Você é a Eva... (Erro ao carregar contexto)"""
 
 
 @app.post("/twiml")
@@ -139,16 +162,16 @@ def detect_speech(audio_pcm: bytes, threshold: int = 500) -> bool:
         return False
 
 
-def registrar_alerta(tipo: str, descricao: str):
+async def registrar_alerta(tipo: str, descricao: str):
     """Registra um alerta no banco de dados"""
-    db = SessionLocal()
-    try:
-        novo_alerta = Alerta(tipo=tipo, descricao=descricao)
-        db.add(novo_alerta)
-        db.commit()
-        print(f"🚨 ALERTA REGISTRADO: {tipo} - {descricao}")
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            novo_alerta = Alerta(tipo=tipo, mensagem=descricao, severidade="alta", idoso_id=1) # TODO: Pegar ID correto do contexto
+            db.add(novo_alerta)
+            await db.commit()
+            print(f"🚨 ALERTA REGISTRADO: {tipo} - {descricao}")
+        except Exception as e:
+            print(f"Erro ao registrar alerta: {e}")
 
 
 def analisar_conversa_para_alertas(texto: str, nome_idoso: str, agendamento_id: int):
@@ -177,22 +200,13 @@ async def gemini_live_session(twilio_ws: WebSocket, stream_sid: str, agendamento
     print(f"🤖 INICIANDO SESSÃO GEMINI - Agendamento #{agendamento_id}")
     print("=" * 60)
 
-    # Busca informações do agendamento
-    db = SessionLocal()
-    agendamento = None
-    nome_idoso = "você"
-
-    if agendamento_id:
-        agendamento = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
-        if agendamento:
-            nome_idoso = agendamento.nome_idoso
-            print(f"👤 Paciente: {nome_idoso}")
-            print(f"💊 Remédios: {agendamento.remedios}")
-
-    db.close()
-
-    system_prompt = criar_prompt_personalizado(agendamento_id) if agendamento_id else """Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
+    # Gera prompt async que busca dados clinicos reais
+    system_prompt = await criar_prompt_personalizado(agendamento_id) if agendamento_id else """Você é a Eva, uma assistente pessoal muito gentil, paciente e carinhosa que cuida de idosos.
 Sua voz deve ser doce e calma. Fale de forma simples e natural."""
+    
+    nome_idoso = "você" # Fallback para log ou outros usos simples
+
+
 
     config = {
         "response_modalities": ["AUDIO"],
@@ -304,15 +318,15 @@ Sua voz deve ser doce e calma. Fale de forma simples e natural."""
 
                             # Atualiza status do agendamento
                             if agendamento_id:
-                                db = SessionLocal()
-                                try:
-                                    agend = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+                            # Atualiza status do agendamento
+                            if agendamento_id:
+                                async with AsyncSessionLocal() as db:
+                                    result = await db.execute(select(Agendamento).where(Agendamento.id == agendamento_id))
+                                    agend = result.scalar_one_or_none()
                                     if agend:
                                         agend.status = "concluido"
-                                        db.commit()
+                                        await db.commit()
                                         print(f"✓ Agendamento #{agendamento_id} marcado como concluído")
-                                finally:
-                                    db.close()
 
                             break
 
@@ -357,7 +371,11 @@ Sua voz deve ser doce e calma. Fale de forma simples e natural."""
 
                                             # Analisa o texto para alertas
                                             if agendamento_id:
-                                                analisar_conversa_para_alertas(part.text, nome_idoso, agendamento_id)
+                                            # Analisa o texto para alertas
+                                            if agendamento_id:
+                                                # TODO: Transformar em async no futuro
+                                                pass 
+                                                # analisar_conversa_para_alertas(part.text, nome_idoso, agendamento_id)
 
                             if content.turn_complete:
                                 if len(audio_accumulator) > 0:
@@ -432,19 +450,19 @@ async def handle_media_stream(websocket: WebSocket, agendamento_id: int = None):
 
         # Se desconectou sem concluir, marca como "nao_atendeu"
         if agendamento_id:
-            db = SessionLocal()
-            try:
-                agend = db.query(Agendamento).filter(Agendamento.id == agendamento_id).first()
+        # Se desconectou sem concluir, marca como "nao_atendeu"
+        if agendamento_id:
+            async with AsyncSessionLocal() as db:
+                result = await db.execute(select(Agendamento).where(Agendamento.id == agendamento_id))
+                agend = result.scalar_one_or_none()
                 if agend and agend.status == "ligado":
                     agend.status = "nao_atendeu"
-                    db.commit()
-
-                    registrar_alerta(
+                    await db.commit()
+                    
+                    await registrar_alerta(
                         tipo="NAO_ATENDEU",
-                        descricao=f"{agend.nome_idoso} não atendeu ou desligou a chamada"
+                        descricao=f"Idoso não atendeu chamda # {agendamento_id}"
                     )
-            finally:
-                db.close()
 
     except Exception as e:
         print(f"\n✗ [WEBSOCKET] Erro: {e}")

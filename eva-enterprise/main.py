@@ -28,6 +28,7 @@ from api import (
     routes_assinaturas,
     routes_ia,
     routes_cuidadores,  # ← NOVO
+    routes_auth,        # ← NOVO (Autenticação)
     # Health Data Routes
     routes_usuarios_saude,
     routes_saude,
@@ -71,6 +72,7 @@ app.add_middleware(
 # ======================
 
 # Sistema de Cuidados com Idosos
+app.include_router(routes_auth.router, prefix="/api/v1/auth", tags=["Autenticação"]) # ← NOVO
 app.include_router(routes_idosos.router, prefix="/api/v1/idosos", tags=["Idosos"])
 app.include_router(routes_cuidadores.router, prefix="/api/v1/cuidadores", tags=["Cuidadores"])  # ← NOVO
 app.include_router(routes_agendamentos.router, prefix="/api/v1/agendamentos", tags=["Agendamentos"])

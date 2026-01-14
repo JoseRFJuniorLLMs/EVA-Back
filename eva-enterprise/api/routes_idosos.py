@@ -11,6 +11,7 @@ from schemas import (
     MemoriaResponse, MemoriaBase
 )
 from typing import List, Optional
+from utils.security import get_current_user, check_role
 
 router = APIRouter()
 
@@ -62,7 +63,8 @@ async def list_idosos(
         telefone: str = None,
         skip: int = 0,
         limit: int = None,
-        db: AsyncSession = Depends(get_db)
+        db: AsyncSession = Depends(get_db),
+        current_user: dict = Depends(get_current_user)
 ):
     """Lista idosos. Regra: se algum filtro for passado, retorna 1. Se não, retorna 10 por padrão."""
     if limit is None:
@@ -73,7 +75,7 @@ async def list_idosos(
 
 
 @router.get("/{id}", response_model=IdosoResponse)
-async def get_idoso(id: int, db: AsyncSession = Depends(get_db)):
+async def get_idoso(id: int, db: AsyncSession = Depends(get_db), current_user: dict = Depends(get_current_user)):
     repo = IdosoRepository(db)
     idoso = await repo.get_by_id(id)
     if not idoso:
@@ -82,7 +84,7 @@ async def get_idoso(id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=IdosoResponse)
-async def create_idoso(idoso: IdosoCreate, db: AsyncSession = Depends(get_db)):
+async def create_idoso(idoso: IdosoCreate, db: AsyncSession = Depends(get_db), current_user: dict = Depends(check_role(["admin", "attendant"]))):
     repo = IdosoRepository(db)
     if await repo.get_by_telefone(idoso.telefone):
         raise HTTPException(status_code=400, detail="Telefone already registered")
@@ -90,7 +92,7 @@ async def create_idoso(idoso: IdosoCreate, db: AsyncSession = Depends(get_db)):
 
 
 @router.put("/{id}", response_model=IdosoResponse)
-async def update_idoso(id: int, idoso: IdosoUpdate, db: AsyncSession = Depends(get_db)):
+async def update_idoso(id: int, idoso: IdosoUpdate, db: AsyncSession = Depends(get_db), current_user: dict = Depends(check_role(["admin", "attendant"]))):
     repo = IdosoRepository(db)
     updated = await repo.update(id, idoso.model_dump(exclude_unset=True))
     if not updated:
@@ -99,7 +101,7 @@ async def update_idoso(id: int, idoso: IdosoUpdate, db: AsyncSession = Depends(g
 
 
 @router.delete("/{id}")
-async def delete_idoso(id: int, db: AsyncSession = Depends(get_db)):
+async def delete_idoso(id: int, db: AsyncSession = Depends(get_db), current_user: dict = Depends(check_role(["admin"]))):
     repo = IdosoRepository(db)
     success = await repo.delete(id)
     if not success:

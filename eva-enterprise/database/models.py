@@ -139,6 +139,7 @@ class Medicamento(Base):
     __tablename__ = "medicamentos"
     id = Column(Integer, primary_key=True)
     idoso_id = Column(Integer, ForeignKey('idosos.id'))
+    catalogo_ref_id = Column(Integer, ForeignKey('catalogo_farmaceutico.id'), nullable=True) # O VITAL LINK
     nome = Column(String, nullable=False)
     principio_ativo = Column(String)
     dosagem = Column(String)
@@ -150,6 +151,7 @@ class Medicamento(Base):
     atualizado_em = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 
     idoso = relationship("Idoso", back_populates="medicamentos")
+    catalogo = relationship("CatalogoFarmaceutico")
 
 
 class SinaisVitais(Base):
@@ -460,6 +462,63 @@ class PredicaoEmergencia(Base):
     falso_positivo = Column(Boolean, default=False)
     criado_em = Column(DateTime, default=datetime.datetime.utcnow)
 
+
+# =====================================================
+# INTELLIGENCE MODULE (O Cérebro Farmacêutico)
+# =====================================================
+
+class CatalogoFarmaceutico(Base):
+    __tablename__ = "catalogo_farmaceutico"
+    
+    id = Column(Integer, primary_key=True)
+    nome_oficial = Column(String(500), nullable=False) # Princípio Ativo
+    nomes_comerciais = Column(Text)
+    classe_terapeutica = Column(String(300))
+    apresentacao_padrao = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamentos de Inteligência
+    dosagem_ref = relationship("ReferenciaDosagem", back_populates="catalogo", uselist=False)
+    riscos_geriatricos = relationship("RiscosGeriatricos", back_populates="catalogo", uselist=False)
+    
+    # Interações (Complexo N:N self-referential via tabela associativa)
+    # Por simplificação, acessaremos via queries diretas no repo
+
+class ReferenciaDosagem(Base):
+    __tablename__ = "referencia_dosagem"
+    
+    id = Column(Integer, primary_key=True)
+    catalogo_id = Column(Integer, ForeignKey('catalogo_farmaceutico.id', ondelete='CASCADE'))
+    dose_maxima_mg = Column(Numeric(10, 2))
+    alerta_renal = Column(Text)
+    faixa_etaria_alvo = Column(String(50))
+    
+    catalogo = relationship("CatalogoFarmaceutico", back_populates="dosagem_ref")
+
+class RiscosGeriatricos(Base):
+    __tablename__ = "riscos_geriatricos"
+    
+    id = Column(Integer, primary_key=True)
+    catalogo_id = Column(Integer, ForeignKey('catalogo_farmaceutico.id', ondelete='CASCADE'))
+    risco_queda = Column(Boolean, default=False)
+    confusao_mental = Column(Boolean, default=False)
+    agravamento_demencia = Column(Boolean, default=False)
+    risco_cardiaco = Column(Boolean, default=False)
+    observacoes = Column(Text)
+    fonte_referencia = Column(String(100))
+    
+    catalogo = relationship("CatalogoFarmaceutico", back_populates="riscos_geriatricos")
+
+class InteracoesRisco(Base):
+    __tablename__ = "interacoes_risco"
+    
+    id = Column(Integer, primary_key=True)
+    catalogo_id_a = Column(Integer, ForeignKey('catalogo_farmaceutico.id'))
+    catalogo_id_b = Column(Integer, ForeignKey('catalogo_farmaceutico.id'))
+    nivel_perigo = Column(String(20), nullable=False) # FATAL, ALTO, MEDIO
+    descricao = Column(Text, nullable=False)
+    mecanismo = Column(String(200))
+    manejo_clinico = Column(Text)
 
 # =====================================================
 # HEALTH DATA MODELS (Sistema de Monitoramento de Saúde)
