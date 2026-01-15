@@ -42,6 +42,10 @@ celery_app.conf.update(
             "task": "api.tasks.reports.generate_monthly_report",
             "schedule": 2592000.0,  # Mensal (aprox)
         },
+        "poll-wise-payments": {
+            "task": "api.tasks.payment.poll_wise_transactions",
+            "schedule": 600.0, # 10 minutos
+        },
     }
 )
 

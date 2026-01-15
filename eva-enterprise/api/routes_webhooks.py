@@ -9,7 +9,7 @@ import json
 
 from database.connection import get_db
 from schemas.webhook import WebhookProcessedResponse
-from services.payment import StripePaymentService, AsaasPaymentService, OpenNodePaymentService
+from services.payment import StripePaymentService, AsaasPaymentService, OpenNodePaymentService, WisePaymentService
 from services.webhook_service import WebhookService
 import os
 
@@ -233,4 +233,40 @@ async def opennode_webhook(
     
     except Exception as e:
         logger.error(f"OpenNode webhook error: {e}")
-        raise HTTPException(400, detail="Invalid webhook")
+
+# ==========================================
+# WISE WEBHOOK
+# ==========================================
+
+@router.post("/wise", response_model=WebhookProcessedResponse)
+async def wise_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Recebe notificação de depósitos da Wise.
+    """
+    try:
+        payload = await request.json()
+        event_type = payload.get("event_type") # Ex: balances#credit
+        
+        logger.info(f"Wise webhook received: {event_type}")
+        
+        if event_type == "balances#credit":
+            # Extrair profile_id para disparar reconciliação
+            # Payload example: { "data": { "resource": { "profile_id": 123 } } }
+            data = payload.get("data", {})
+            resource = data.get("resource", {})
+            profile_id = resource.get("profile_id")
+            
+            if profile_id:
+                service = WisePaymentService(db)
+                # Dispara busca ativa de transações para identificar o depósito
+                await service.reconcile_transactions(profile_id)
+                logger.info(f"Triggered reconciliation for profile {profile_id}")
+        
+        return WebhookProcessedResponse(received=True)
+        
+    except Exception as e:
+        logger.error(f"Wise webhook error: {e}")
+        return WebhookProcessedResponse(received=True)

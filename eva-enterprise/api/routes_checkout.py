@@ -28,7 +28,7 @@ from services.payment import (
     WisePaymentService
 )
 from services.storage_service import StorageService
-from database.models.transaction import Transaction
+from database.payment_models import Transaction
 from sqlalchemy import select, update
 from datetime import datetime
 
@@ -237,6 +237,20 @@ async def get_payment_instructions(
         logger.error(f"Payment instructions error: {e}", extra={"user_id": user_id})
         raise HTTPException(500, detail="Erro ao obter instruções de pagamento")
 
+
+
+@router.get("/wise/status/{reference_code}")
+async def check_wise_payment_status(
+    reference_code: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Verifica estado do pagamento Wise (Polling).
+    """
+    service = WisePaymentService(db)
+    status = await service.check_reference_status(reference_code)
+    is_paid = (status == "used")
+    return {"status": status, "paid": is_paid}
 
 # ==========================================
 # UPLOAD DE COMPROVANTE

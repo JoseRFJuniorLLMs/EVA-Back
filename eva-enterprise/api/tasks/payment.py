@@ -4,6 +4,9 @@ Tasks assíncronas para processamento de pagamentos e assinaturas
 """
 from core.celery_app import celery_app
 from services.payment import StripePaymentService
+from services.payment.wise_service import WisePaymentService
+from database.connection import AsyncSessionLocal
+import os
 import logging
 import asyncio
 
@@ -62,4 +65,27 @@ def send_renewal_reminder(user_id: int):
     """
     logger.info(f"[Task] Sending renewal reminder to user {user_id}")
     # TODO: Enviar email (SendGrid/AWS SES)
-    return "Email sent"
+
+@celery_app.task(name="api.tasks.payment.poll_wise_transactions")
+def poll_wise_transactions_task():
+    """
+    Cron job: Busca depósitos na Wise a cada X minutos.
+    Backup para caso o Webhook falhe.
+    """
+    logger.info("[Cron] Polling Wise transactions...")
+    
+    async def _process():
+        try:
+            async with AsyncSessionLocal() as db:
+                service = WisePaymentService(db)
+                profile_id = os.getenv("WISE_PROFILE_ID")
+                
+                if profile_id:
+                    await service.reconcile_transactions(int(profile_id))
+                else:
+                    logger.warning("WISE_PROFILE_ID not configured")
+        except Exception as e:
+            logger.error(f"Error in Wise polling: {e}")
+    
+    run_async(_process())
+    return "Wise Polling Completed"

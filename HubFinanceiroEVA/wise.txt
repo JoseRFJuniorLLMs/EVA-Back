@@ -1,0 +1,2203 @@
+# Wise API Integration - Automação Completa de Pagamentos Internacionais
+## Especificação Técnica para EVA Financial Hub
+
+---
+
+## 📋 ÍNDICE
+
+1. [Introdução & Arquitetura](#1-introdução--arquitetura)
+2. [Setup & Configuração Wise](#2-setup--configuração-wise)
+3. [API Wise - Referência Completa](#3-api-wise---referência-completa)
+4. [Sistema de Referências Únicas](#4-sistema-de-referências-únicas)
+5. [Webhook Implementation](#5-webhook-implementation)
+6. [Polling System (Backup)](#6-polling-system-backup)
+7. [Frontend React](#7-frontend-react)
+8. [Backend Python (FastAPI)](#8-backend-python-fastapi)
+9. [Segurança & Validação](#9-segurança--validação)
+10. [Reconciliação & Auditoria](#10-reconciliação--auditoria)
+11. [Casos de Uso Avançados](#11-casos-de-uso-avançados)
+12. [Troubleshooting](#12-troubleshooting)
+
+---
+
+## 1. INTRODUÇÃO & ARQUITETURA
+
+### 1.1 Diferença Fundamental: Wise vs Payment Gateways
+
+**Wise NÃO é um gateway de pagamento (push vs pull):**
+
+| Gateway (Stripe, Asaas) | Wise (Transferência) |
+|-------------------------|----------------------|
+| **PULL**: Você cobra o cliente | **PUSH**: Cliente envia dinheiro |
+| API cria cobrança instantânea | API monitora recebimentos |
+| Cliente clica "Pagar" | Cliente faz transferência manual |
+| Confirmação em segundos | Confirmação em minutos/horas |
+| Webhook instantâneo | Webhook ao creditar conta |
+
+**Implicação:** Com Wise, não há "botão de pagamento". O fluxo é:
+1. Cliente vê instruções bancárias
+2. Cliente faz transferência no app/site da Wise dele
+3. Sistema EVA detecta recebimento (webhook ou polling)
+4. Sistema EVA ativa assinatura automaticamente
+
+### 1.2 Arquitetura do Sistema
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    FLUXO WISE AUTOMÁTICO                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌──────────┐   1. GET /wise/instructions     ┌──────────────┐
+│  React   │ ───────────────────────────────>│   FastAPI    │
+│ Frontend │                                  │   Backend    │
+└────┬─────┘                                  └──────┬───────┘
+     │                                               │
+     │  2. Response: {                               │
+     │      recipient: "EVA Inc",                    │
+     │      iban: "DE89...",                         │
+     │      reference: "EVA-USER-12345",       ◄─────┘
+     │      amount: "USD 59.90"                      │
+     │    }                                          │
+     │                                               │
+     │  3. User copies reference                     │
+     │     and makes transfer in                     │
+     │     their Wise app                            │
+     │                                               │
+     v                                               │
+┌──────────┐                                         │
+│ User's   │   4. Transfer with reference            │
+│ Wise App │ ───────────────────────────────────────>│
+└──────────┘                                 ┌───────▼────────┐
+                                             │   Wise API     │
+                                             │ (Your Account) │
+                                             └───────┬────────┘
+                                                     │
+                      5. Webhook: balance.credit    │
+                         OR                          │
+                      6. Polling check every 5min    │
+                                                     │
+┌──────────────┐                                     │
+│   FastAPI    │ ◄───────────────────────────────────┘
+│   Backend    │
+└──────┬───────┘
+       │
+       │  7. Validate reference (EVA-USER-12345)
+       │  8. Find user_id from reference
+       │  9. Check amount matches plan
+       │  10. Activate subscription
+       │  11. Send confirmation email
+       │
+       v
+┌──────────────┐
+│  PostgreSQL  │
+│  + Redis     │
+└──────────────┘
+```
+
+### 1.3 Vantagens da Automação Wise
+
+✅ **Zero Intervenção Manual**: Sem aprovação de comprovantes  
+✅ **Global**: Aceita 50+ moedas (USD, EUR, GBP, JPY, AUD, etc)  
+✅ **Baixo Custo**: Taxas menores que cartão internacional  
+✅ **Compliance**: Rastreável para auditoria fiscal  
+✅ **Multi-Currency**: Uma conta, múltiplas moedas  
+✅ **B2B Friendly**: Ideal para empresas que já usam Wise  
+
+---
+
+## 2. SETUP & CONFIGURAÇÃO WISE
+
+### 2.1 Requisitos de Conta
+
+**Opção A: Wise Business (Recomendado)**
+- ✅ API tokens disponíveis
+- ✅ Webhooks nativos
+- ✅ Multi-user access
+- ✅ Extratos detalhados
+- ✅ Compliance automático
+- 💰 Custo: Grátis (taxas apenas em transferências)
+
+**Opção B: Wise Personal (Limitado)**
+- ⚠️ API tokens disponíveis após solicitação
+- ❌ Webhooks podem não estar disponíveis
+- ❌ Apenas 1 usuário
+- ✅ Mesmas taxas de transferência
+
+**Recomendação:** Use Wise Business desde o início.
+
+### 2.2 Criação de API Token
+
+**Passo a passo:**
+
+1. Acesse: https://wise.com → Login
+2. Vá em **Settings** → **API tokens**
+3. Clique em **Add new token**
+4. Defina escopo:
+   ```
+   ☑ Read account balances
+   ☑ Read transactions history
+   ☑ Read borderless account details
+   ☐ Create transfers (NÃO necessário)
+   ☐ Fund transfers (NÃO necessário)
+   ```
+5. Copie o token: `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
+6. **ATENÇÃO**: Token só é exibido uma vez! Salve em local seguro.
+
+**Segurança:**
+- Use token **read-only** (leitura apenas)
+- Armazene em `.env` ou Google Secret Manager
+- Nunca commite no Git
+- Rotacione a cada 6 meses
+
+### 2.3 Obter IDs Necessários
+
+**A. Profile ID (Seu ID de conta):**
+
+```bash
+curl -X GET https://api.transferwise.com/v1/profiles \
+  -H "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 12345678,  ← SEU PROFILE_ID
+    "type": "business",
+    "details": {
+      "name": "EVA Care Inc"
+    }
+  }
+]
+```
+
+**B. Borderless Account ID (Conta Multi-Moeda):**
+
+```bash
+curl -X GET https://api.transferwise.com/v3/profiles/12345678/borderless-accounts \
+  -H "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 87654321,  ← SEU BORDERLESS_ACCOUNT_ID
+    "profileId": 12345678,
+    "balances": [
+      {
+        "currency": "USD",
+        "amount": {
+          "value": 1000.00
+        }
+      },
+      {
+        "currency": "EUR",
+        "amount": {
+          "value": 500.00
+        }
+      }
+    ]
+  }
+]
+```
+
+**C. Dados Bancários por Moeda:**
+
+```bash
+curl -X GET https://api.transferwise.com/v1/borderless-accounts/87654321/details?currency=USD \
+  -H "Authorization: Bearer YOUR_API_TOKEN"
+```
+
+**Response:**
+```json
+{
+  "details": [
+    {
+      "type": "iban",
+      "iban": "DE89370400440532013000",
+      "swift": "TRWIBEB1XXX",
+      "accountHolderName": "EVA Care Inc"
+    },
+    {
+      "type": "aba",
+      "accountNumber": "8310058284",
+      "routingNumber": "026073150",
+      "accountType": "CHECKING",
+      "bankName": "Community Federal Savings Bank"
+    }
+  ]
+}
+```
+
+**Salve esses dados:**
+```python
+# .env
+WISE_API_TOKEN=xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+WISE_PROFILE_ID=12345678
+WISE_ACCOUNT_ID=87654321
+
+# Dados bancários (armazenar no DB: payment_instructions)
+WISE_USD_IBAN=DE89370400440532013000
+WISE_USD_SWIFT=TRWIBEB1XXX
+WISE_USD_ROUTING=026073150
+WISE_USD_ACCOUNT=8310058284
+```
+
+### 2.4 Configurar Webhooks na Wise
+
+**Endpoint para registrar:**
+
+```bash
+curl -X POST https://api.transferwise.com/v3/profiles/12345678/subscriptions \
+  -H "Authorization: Bearer YOUR_API_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "EVA Payment Notifications",
+    "trigger_on": "transfers#state-change",
+    "delivery": {
+      "version": "2.0.0",
+      "url": "https://api.eva.com/webhooks/wise"
+    }
+  }'
+```
+
+**Eventos disponíveis:**
+- `transfers#state-change`: Transferência mudou de status
+- `balance-deposits#credit`: Dinheiro entrou na conta (⭐ O que precisamos)
+
+**Teste local com ngrok:**
+```bash
+# Terminal 1: Rodar FastAPI
+uvicorn app.main:app --reload
+
+# Terminal 2: Expor com ngrok
+ngrok http 8000
+
+# Use a URL ngrok como webhook URL
+# https://abc123.ngrok.io/webhooks/wise
+```
+
+---
+
+## 3. API WISE - REFERÊNCIA COMPLETA
+
+### 3.1 Estrutura da API
+
+**Base URL:** `https://api.transferwise.com`
+
+**Versões:**
+- `/v1`: APIs antigas (ainda suportadas)
+- `/v3`: APIs modernas (recomendado)
+
+**Headers Obrigatórios:**
+```http
+Authorization: Bearer YOUR_API_TOKEN
+Content-Type: application/json
+```
+
+**Rate Limits:**
+- 300 requests / minuto (por token)
+- Burst: 10 requests / segundo
+- Header de resposta: `X-RateLimit-Remaining`
+
+### 3.2 Endpoints Principais
+
+#### A. Listar Contas Multi-Moeda
+
+**Request:**
+```http
+GET /v3/profiles/{profileId}/borderless-accounts
+```
+
+**Response:**
+```json
+[
+  {
+    "id": 87654321,
+    "profileId": 12345678,
+    "recipientId": 999888777,
+    "creationTime": "2024-01-15T10:30:00.000Z",
+    "modificationTime": "2026-01-15T10:30:00.000Z",
+    "active": true,
+    "eligible": true,
+    "balances": [
+      {
+        "balanceType": "AVAILABLE",
+        "currency": "USD",
+        "amount": {
+          "value": 1500.50,
+          "currency": "USD"
+        },
+        "reservedAmount": {
+          "value": 0.00,
+          "currency": "USD"
+        }
+      }
+    ]
+  }
+]
+```
+
+#### B. Obter Extrato (Statement)
+
+**Request:**
+```http
+GET /v3/profiles/{profileId}/borderless-accounts/{accountId}/statement.json
+  ?currency=USD
+  &intervalStart=2026-01-15T00:00:00.000Z
+  &intervalEnd=2026-01-15T23:59:59.999Z
+  &type=COMPACT
+```
+
+**Parâmetros:**
+- `currency` (obrigatório): USD, EUR, GBP, etc
+- `intervalStart` (obrigatório): ISO 8601 datetime
+- `intervalEnd` (obrigatório): ISO 8601 datetime
+- `type` (opcional): `COMPACT` | `FLAT` (default: COMPACT)
+
+**Response:**
+```json
+{
+  "accountHolder": {
+    "type": "BUSINESS",
+    "address": {
+      "addressFirstLine": "123 Main St",
+      "city": "New York",
+      "countryName": "United States"
+    },
+    "firstName": "EVA",
+    "lastName": "Care Inc"
+  },
+  "issuer": {
+    "name": "Wise",
+    "firstLine": "56 Shoreditch High Street",
+    "city": "London",
+    "stateCode": "ENG",
+    "countryName": "United Kingdom"
+  },
+  "bankDetails": null,
+  "transactions": [
+    {
+      "type": "CREDIT",  ← Dinheiro ENTRANDO
+      "date": "2026-01-15T14:22:30.000Z",
+      "amount": {
+        "value": 59.90,
+        "currency": "USD"
+      },
+      "totalFees": {
+        "value": 0.00,
+        "currency": "USD"
+      },
+      "details": {
+        "type": "DEPOSIT",
+        "description": "Received money from John Doe",
+        "senderName": "John Doe",
+        "senderAccount": "DE89370400440532013000",
+        "paymentReference": "EVA-USER-12345",  ← REFERÊNCIA!
+        "category": "deposit"
+      },
+      "exchangeDetails": null,
+      "runningBalance": {
+        "value": 1560.40,
+        "currency": "USD"
+      },
+      "referenceNumber": "TRANSFER-123456789"  ← ID único da Wise
+    },
+    {
+      "type": "DEBIT",  ← Dinheiro SAINDO
+      "date": "2026-01-14T10:00:00.000Z",
+      "amount": {
+        "value": -50.00,
+        "currency": "USD"
+      },
+      "details": {
+        "type": "TRANSFER",
+        "description": "Sent to Supplier",
+        "paymentReference": "INVOICE-456"
+      }
+    }
+  ],
+  "endOfStatementBalance": {
+    "value": 1560.40,
+    "currency": "USD"
+  },
+  "query": {
+    "intervalStart": "2026-01-15T00:00:00.000Z",
+    "intervalEnd": "2026-01-15T23:59:59.999Z",
+    "currency": "USD"
+  }
+}
+```
+
+**Campos Críticos para EVA:**
+- `transactions[].type`: Deve ser `"CREDIT"`
+- `transactions[].details.paymentReference`: Contém `"EVA-USER-12345"`
+- `transactions[].amount.value`: Valor recebido
+- `transactions[].referenceNumber`: ID único (para idempotência)
+
+#### C. Obter Saldo Atual
+
+**Request:**
+```http
+GET /v3/profiles/{profileId}/balances?types=STANDARD
+```
+
+**Response:**
+```json
+[
+  {
+    "balanceType": "AVAILABLE",
+    "currency": "USD",
+    "amount": {
+      "value": 1560.40,
+      "currency": "USD"
+    },
+    "reservedAmount": {
+      "value": 0.00,
+      "currency": "USD"
+    },
+    "bankDetails": {
+      "id": 999888777,
+      "currency": "USD",
+      "bankCode": "026073150",
+      "accountNumber": "8310058284",
+      "swift": "",
+      "iban": "DE89370400440532013000",
+      "bankName": "Community Federal Savings Bank"
+    }
+  }
+]
+```
+
+---
+
+## 4. SISTEMA DE REFERÊNCIAS ÚNICAS
+
+### 4.1 Design do Código de Referência
+
+**Formato:** `EVA-{COMPONENT}-{USER_ID}-{CHECKSUM}`
+
+**Componentes:**
+- **Prefixo**: `EVA` (identificador da empresa)
+- **Component**: `USER` | `ORG` | `RENEWAL`
+- **User ID**: ID numérico do usuário
+- **Checksum**: 4 dígitos de validação (CRC32)
+
+**Exemplos:**
+```
+EVA-USER-12345-A3B2
+EVA-ORG-98765-7F4E
+EVA-RENEWAL-12345-9C1D
+```
+
+### 4.2 Implementação Python
+
+```python
+import hashlib
+import re
+from typing import Optional
+
+class WiseReferenceGenerator:
+    """
+    Gerador de códigos de referência únicos para Wise.
+    
+    Format: EVA-{COMPONENT}-{USER_ID}-{CHECKSUM}
+    Example: EVA-USER-12345-A3B2
+    """
+    
+    PREFIX = "EVA"
+    
+    @staticmethod
+    def generate(user_id: int, component: str = "USER") -> str:
+        """
+        Gera código de referência único.
+        
+        Args:
+            user_id: ID do usuário
+            component: Tipo (USER, ORG, RENEWAL)
+        
+        Returns:
+            Código formatado (ex: EVA-USER-12345-A3B2)
+        """
+        # Validar component
+        valid_components = ["USER", "ORG", "RENEWAL"]
+        if component not in valid_components:
+            raise ValueError(f"Component must be one of: {valid_components}")
+        
+        # Criar base
+        base = f"{WiseReferenceGenerator.PREFIX}-{component}-{user_id}"
+        
+        # Calcular checksum (CRC32 truncado)
+        checksum = hashlib.md5(base.encode()).hexdigest()[:4].upper()
+        
+        # Retornar código completo
+        return f"{base}-{checksum}"
+    
+    @staticmethod
+    def validate(reference: str) -> bool:
+        """
+        Valida formato do código.
+        
+        Args:
+            reference: Código a validar
+        
+        Returns:
+            True se válido
+        """
+        pattern = r"^EVA-(USER|ORG|RENEWAL)-\d+-[A-F0-9]{4}$"
+        return bool(re.match(pattern, reference))
+    
+    @staticmethod
+    def extract_user_id(reference: str) -> Optional[int]:
+        """
+        Extrai user_id do código.
+        
+        Args:
+            reference: Código completo
+        
+        Returns:
+            User ID ou None se inválido
+        """
+        if not WiseReferenceGenerator.validate(reference):
+            return None
+        
+        parts = reference.split("-")
+        try:
+            return int(parts[2])
+        except (IndexError, ValueError):
+            return None
+    
+    @staticmethod
+    def verify_checksum(reference: str) -> bool:
+        """
+        Verifica integridade do checksum.
+        
+        Args:
+            reference: Código completo
+        
+        Returns:
+            True se checksum válido
+        """
+        if not WiseReferenceGenerator.validate(reference):
+            return False
+        
+        parts = reference.split("-")
+        base = "-".join(parts[:-1])  # Tudo menos checksum
+        provided_checksum = parts[-1]
+        
+        # Recalcular checksum
+        expected_checksum = hashlib.md5(base.encode()).hexdigest()[:4].upper()
+        
+        return provided_checksum == expected_checksum
+
+
+# Testes unitários
+def test_reference_generator():
+    # Gerar
+    ref = WiseReferenceGenerator.generate(12345, "USER")
+    assert ref.startswith("EVA-USER-12345-")
+    
+    # Validar
+    assert WiseReferenceGenerator.validate(ref) == True
+    assert WiseReferenceGenerator.validate("INVALID") == False
+    
+    # Extrair user_id
+    user_id = WiseReferenceGenerator.extract_user_id(ref)
+    assert user_id == 12345
+    
+    # Verificar checksum
+    assert WiseReferenceGenerator.verify_checksum(ref) == True
+    
+    # Checksum inválido
+    bad_ref = "EVA-USER-12345-XXXX"
+    assert WiseReferenceGenerator.verify_checksum(bad_ref) == False
+    
+    print("✅ Todos os testes passaram!")
+
+test_reference_generator()
+```
+
+### 4.3 Armazenamento no Banco de Dados
+
+**Tabela: wise_payment_references**
+
+```sql
+CREATE TABLE wise_payment_references (
+    id SERIAL PRIMARY KEY,
+    
+    -- Referência única
+    reference_code VARCHAR(50) UNIQUE NOT NULL,
+    -- Exemplo: EVA-USER-12345-A3B2
+    
+    -- Relacionamentos
+    user_id INTEGER REFERENCES users(id) NOT NULL,
+    subscription_id INTEGER REFERENCES subscriptions(id),
+    
+    -- Dados do pagamento esperado
+    expected_amount DECIMAL(10,2) NOT NULL,
+    expected_currency VARCHAR(3) NOT NULL,
+    plan_tier VARCHAR(20) NOT NULL,
+    
+    -- Status
+    status VARCHAR(20) DEFAULT 'pending',
+    -- pending, used, expired, cancelled
+    
+    -- Rastreamento
+    created_at TIMESTAMP DEFAULT NOW(),
+    expires_at TIMESTAMP NOT NULL,
+    used_at TIMESTAMP,
+    
+    -- Metadados
+    metadata_json JSONB DEFAULT '{}',
+    
+    -- Índices
+    CONSTRAINT idx_reference_code UNIQUE(reference_code),
+    INDEX idx_user_status (user_id, status),
+    INDEX idx_expires (expires_at) WHERE status = 'pending'
+);
+```
+
+**Model SQLAlchemy:**
+
+```python
+from sqlalchemy import Column, Integer, String, Numeric, DateTime, ForeignKey, JSON
+from sqlalchemy.orm import relationship
+from datetime import datetime, timedelta
+from app.models.base import Base
+
+class WisePaymentReference(Base):
+    __tablename__ = "wise_payment_references"
+    
+    id = Column(Integer, primary_key=True)
+    reference_code = Column(String(50), unique=True, nullable=False, index=True)
+    
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    subscription_id = Column(Integer, ForeignKey("subscriptions.id"), nullable=True)
+    
+    expected_amount = Column(Numeric(10, 2), nullable=False)
+    expected_currency = Column(String(3), nullable=False)
+    plan_tier = Column(String(20), nullable=False)
+    
+    status = Column(String(20), default="pending")
+    
+    created_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=False)
+    used_at = Column(DateTime, nullable=True)
+    
+    metadata_json = Column(JSON, default={})
+    
+    # Relationships
+    user = relationship("User", back_populates="wise_references")
+    subscription = relationship("Subscription", back_populates="wise_references")
+    
+    @staticmethod
+    def generate_for_user(user_id: int, amount: float, currency: str, plan_tier: str):
+        """
+        Cria nova referência para usuário.
+        
+        Expira em 7 dias.
+        """
+        reference_code = WiseReferenceGenerator.generate(user_id, "USER")
+        
+        return WisePaymentReference(
+            reference_code=reference_code,
+            user_id=user_id,
+            expected_amount=amount,
+            expected_currency=currency,
+            plan_tier=plan_tier,
+            expires_at=datetime.utcnow() + timedelta(days=7)
+        )
+    
+    def is_expired(self) -> bool:
+        """Verifica se referência expirou."""
+        return datetime.utcnow() > self.expires_at
+    
+    def mark_as_used(self, subscription_id: int):
+        """Marca referência como usada."""
+        self.status = "used"
+        self.used_at = datetime.utcnow()
+        self.subscription_id = subscription_id
+```
+
+---
+
+## 5. WEBHOOK IMPLEMENTATION
+
+### 5.1 Estrutura do Webhook Wise
+
+**Evento:** `balance-deposits#credit`
+
+**Payload Exemplo:**
+
+```json
+{
+  "data": {
+    "resource": {
+      "id": 123456789,
+      "profile_id": 12345678,
+      "account_id": 87654321,
+      "type": "balance-deposit",
+      "amount": 59.90,
+      "currency": "USD",
+      "fees": 0.00,
+      "reference": "EVA-USER-12345-A3B2",
+      "details": {
+        "senderName": "John Doe",
+        "paymentReference": "EVA-USER-12345-A3B2"
+      },
+      "created_time": "2026-01-15T14:22:30.000Z",
+      "state": "completed"
+    }
+  },
+  "subscription_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "event_type": "balance-deposits#credit",
+  "schema_version": "2.0.0",
+  "sent_at": "2026-01-15T14:22:35.000Z"
+}
+```
+
+### 5.2 Validação de Assinatura (HMAC)
+
+**Wise assina webhooks com HMAC-SHA256.**
+
+**Header:** `X-Signature-SHA256`
+
+**Algoritmo:**
+```
+signature = HMAC-SHA256(webhook_secret, request_body)
+```
+
+**Implementação Python:**
+
+```python
+import hmac
+import hashlib
+from fastapi import Request, HTTPException
+
+async def verify_wise_webhook_signature(
+    request: Request,
+    webhook_secret: str
+) -> bool:
+    """
+    Valida assinatura do webhook Wise.
+    
+    Args:
+        request: FastAPI request object
+        webhook_secret: Secret fornecido pela Wise
+    
+    Returns:
+        True se válido
+    
+    Raises:
+        HTTPException: Se assinatura inválida
+    """
+    # Obter signature do header
+    signature_header = request.headers.get("X-Signature-SHA256")
+    if not signature_header:
+        raise HTTPException(400, "Missing signature header")
+    
+    # Obter body raw
+    body = await request.body()
+    
+    # Calcular HMAC esperado
+    expected_signature = hmac.new(
+        key=webhook_secret.encode(),
+        msg=body,
+        digestmod=hashlib.sha256
+    ).hexdigest()
+    
+    # Comparar (timing-safe)
+    is_valid = hmac.compare_digest(signature_header, expected_signature)
+    
+    if not is_valid:
+        raise HTTPException(401, "Invalid webhook signature")
+    
+    return True
+```
+
+### 5.3 Endpoint FastAPI Completo
+
+```python
+from fastapi import APIRouter, Request, HTTPException, Depends
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+from app.core.config import settings
+from app.models.wise import WisePaymentReference
+from app.models.transaction import Transaction, TransactionStatus
+from app.models.subscription import Subscription, SubscriptionStatus
+from app.services.notification import send_payment_confirmed_email
+import structlog
+
+logger = structlog.get_logger()
+router = APIRouter(prefix="/webhooks", tags=["Webhooks"])
+
+@router.post("/wise")
+async def wise_webhook(
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Recebe webhooks da Wise para pagamentos recebidos.
+    
+    **Security:** Valida HMAC signature
+    **Idempotency:** Usa reference_number para evitar duplicatas
+    
+    **Flow:**
+    1. Valida assinatura
+    2. Extrai referência (EVA-USER-12345-A3B2)
+    3. Busca referência no DB
+    4. Valida valor e moeda
+    5. Cria transaction
+    6. Ativa subscription
+    7. Marca referência como usada
+    8. Envia confirmação
+    """
+    # 1. Validar signature
+    await verify_wise_webhook_signature(request, settings.WISE_WEBHOOK_SECRET)
+    
+    # 2. Parse payload
+    payload = await request.json()
+    event_type = payload.get("event_type")
+    
+    # 3. Filtrar apenas créditos
+    if event_type != "balance-deposits#credit":
+        logger.info("webhook_ignored", event_type=event_type)
+        return {"status": "ignored"}
+    
+    # 4. Extrair dados
+    resource = payload["data"]["resource"]
+    wise_reference_number = resource["id"]  # ID único da Wise
+    amount = float(resource["amount"])
+    currency = resource["currency"]
+    payment_reference = resource["details"].get("paymentReference", "")
+    sender_name = resource["details"].get("senderName", "Unknown")
+    
+    logger.info(
+        "wise_payment_received",
+        reference_number=wise_reference_number,
+        amount=amount,
+        currency=currency,
+        payment_reference=payment_reference
+    )
+    
+    # 5. Verificar idempotência
+    existing_tx = await db.query(Transaction).filter(
+        Transaction.external_ref == str(wise_reference_number)
+    ).first()
+    
+    if existing_tx:
+        logger.warning("duplicate_webhook", reference_number=wise_reference_number)
+        return {"status": "duplicate"}
+    
+    # 6. Buscar referência EVA no DB
+    if not payment_reference.startswith("EVA-"):
+        logger.warning("invalid_reference", payment_reference=payment_reference)
+        return {"status": "invalid_reference"}
+    
+    wise_ref = await db.query(WisePaymentReference).filter(
+        WisePaymentReference.reference_code == payment_reference,
+        WisePaymentReference.status == "pending"
+    ).first()
+    
+    if not wise_ref:
+        logger.error("reference_not_found", payment_reference=payment_reference)
+        # Criar transaction pendente para análise manual
+        tx = Transaction(
+            user_id=None,
+            amount=amount,
+            currency=currency,
+            provider="wise",
+            status=TransactionStatus.WAITING_APPROVAL,
+            external_ref=str(wise_reference_number),
+            failure_reason=f"Reference not found: {payment_reference}"
+        )
+        db.add(tx)
+        await db.commit()
+        return {"status": "pending_review"}
+    
+    # 7. Verificar se expirou
+    if wise_ref.is_expired():
+        logger.error("reference_expired", reference_code=payment_reference)
+        return {"status": "expired"}
+    
+    # 8. Validar valor e moeda
+    expected_amount = float(wise_ref.expected_amount)
+    tolerance = 0.01  # Tolerância de 1 centavo
+    
+    if abs(amount - expected_amount) > tolerance:
+        logger.error(
+            "amount_mismatch",
+            expected=expected_amount,
+            received=amount,
+            reference=payment_reference
+        )
+        # Criar transaction para revisão
+        tx = Transaction(
+            user_id=wise_ref.user_id,
+            amount=amount,
+            currency=currency,
+            provider="wise",
+            status=TransactionStatus.WAITING_APPROVAL,
+            external_ref=str(wise_reference_number),
+            failure_reason=f"Amount mismatch: expected {expected_amount}, got {amount}"
+        )
+        db.add(tx)
+        await db.commit()
+        return {"status": "amount_mismatch"}
+    
+    if currency != wise_ref.expected_currency:
+        logger.error(
+            "currency_mismatch",
+            expected=wise_ref.expected_currency,
+            received=currency,
+            reference=payment_reference
+        )
+        return {"status": "currency_mismatch"}
+    
+    # 9. Criar transaction
+    tx = Transaction(
+        user_id=wise_ref.user_id,
+        amount=amount,
+        currency=currency,
+        provider="wise",
+        status=TransactionStatus.PAID,
+        external_ref=str(wise_reference_number)
+    )
+    db.add(tx)
+    await db.flush()
+    
+    # 10. Ativar/renovar subscription
+    subscription = await db.query(Subscription).filter(
+        Subscription.user_id == wise_ref.user_id,
+        Subscription.plan_tier == wise_ref.plan_tier
+    ).first()
+    
+    if subscription:
+        # Renovar existente
+        from datetime import datetime, timedelta
+        subscription.current_period_end = max(
+            subscription.current_period_end,
+            datetime.utcnow()
+        ) + timedelta(days=30)
+        subscription.status = SubscriptionStatus.ACTIVE
+        logger.info("subscription_renewed", subscription_id=subscription.id)
+    else:
+        # Criar nova
+        from datetime import datetime, timedelta
+        subscription = Subscription(
+            user_id=wise_ref.user_id,
+            plan_tier=wise_ref.plan_tier,
+            status=SubscriptionStatus.ACTIVE,
+            payment_method_default="wise",
+            current_period_start=datetime.utcnow(),
+            current_period_end=datetime.utcnow() + timedelta(days=30),
+            metadata_json={"sender_name": sender_name}
+        )
+        db.add(subscription)
+        await db.flush()
+        logger.info("subscription_created", subscription_id=subscription.id)
+    
+    # Vincular transaction à subscription
+    tx.subscription_id = subscription.id
+    
+    # 11. Marcar referência como usada
+    wise_ref.mark_as_used(subscription.id)
+    
+    # 12. Commit
+    await db.commit()
+    
+    # 13. Enviar confirmação por email
+    await send_payment_confirmed_email(
+        user_id=wise_ref.user_id,
+        amount=amount,
+        currency=currency,
+        plan_tier=wise_ref.plan_tier,
+        transaction_id=tx.id
+    )
+    
+    # 14. Publicar evento no Redis (para WebSocket)
+    await redis.publish(
+        f"payment:{wise_ref.user_id}",
+        json.dumps({
+            "event": "payment_confirmed",
+            "provider": "wise",
+            "amount": amount,
+            "currency": currency,
+            "subscription_id": subscription.id
+        })
+    )
+    
+    logger.info(
+        "payment_processed_successfully",
+        user_id=wise_ref.user_id,
+        transaction_id=tx.id,
+        subscription_id=subscription.id
+    )
+    
+    return {
+        "status": "processed",
+        "transaction_id": tx.id,
+        "subscription_id": subscription.id
+    }
+```
+
+### 5.4 Testes do Webhook
+
+**Payload de Teste:**
+
+```python
+import pytest
+from httpx import AsyncClient
+
+@pytest.mark.asyncio
+async def test_wise_webhook_success(client: AsyncClient, db_session):
+    """Testa webhook com pagamento válido."""
+    
+    # 1. Criar referência no DB
+    from app.models.wise import WisePaymentReference
+    ref = WisePaymentReference.generate_for_user(
+        user_id=123,
+        amount=59.90,
+        currency="USD",
+        plan_tier="gold"
+    )
+    db_session.add(ref)
+    await db_session.commit()
+    
+    # 2. Simular webhook
+    payload = {
+        "data": {
+            "resource": {
+                "id": 999888777,
+                "amount": 59.90,
+                "currency": "USD",
+                "details": {
+                    "paymentReference": ref.reference_code,
+                    "senderName": "John Doe"
+                }
+            }
+        },
+        "event_type": "balance-deposits#credit"
+    }
+    
+    # 3. Calcular signature
+    import hmac
+    import hashlib
+    import json
+    
+    body = json.dumps(payload).encode()
+    signature = hmac.new(
+        "test_webhook_secret".encode(),
+        body,
+        hashlib.sha256
+    ).hexdigest()
+    
+    # 4. Fazer request
+    response = await client.post(
+        "/webhooks/wise",
+        json=payload,
+        headers={"X-Signature-SHA256": signature}
+    )
+    
+    # 5. Validar
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "processed"
+    
+    # 6. Verificar DB
+    await db_session.refresh(ref)
+    assert ref.status == "used"
+    assert ref.used_at is not None
+```
+
+---
+
+## 6. POLLING SYSTEM (BACKUP)
+
+### 6.1 Por que Polling?
+
+**Vantagens:**
+- ✅ Mais simples de implementar (não precisa expor endpoint público)
+- ✅ Funciona em desenvolvimento local (sem ngrok)
+- ✅ Backup caso webhook falhe
+- ✅ Não depende de configuração Wise
+
+**Desvantagens:**
+- ❌ Latência maior (5-15 minutos)
+- ❌ Consome mais API calls
+- ❌ Menos "real-time"
+
+**Recomendação:** Use webhook como primário + polling como backup.
+
+### 6.2 Implementação Celery Task
+
+```python
+from celery import shared_task
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import AsyncSessionLocal
+from app.services.wise import WiseAPIClient
+from app.models.wise import WisePaymentReference
+from app.models.transaction import Transaction, TransactionStatus
+from datetime import datetime, timedelta
+import structlog
+
+logger = structlog.get_logger()
+
+@shared_task(bind=True, max_retries=3)
+async def poll_wise_transactions(self):
+    """
+    Tarefa Celery que checa novas transações Wise.
+    
+    Roda a cada 5 minutos (configurado no beat scheduler).
+    
+    **Flow:**
+    1. Busca últimas transações (últimos 15 min)
+    2. Filtra apenas créditos (tipo CREDIT)
+    3. Para cada transação:
+       - Extrai referência
+       - Busca no DB
+       - Processa pagamento
+    4. Marca como processadas (evita duplicatas)
+    """
+    logger.info("wise_polling_started")
+    
+    async with AsyncSessionLocal() as db:
+        try:
+            # 1. Inicializar cliente Wise
+            wise_client = WiseAPIClient(
+                api_token=settings.WISE_API_TOKEN,
+                profile_id=settings.WISE_PROFILE_ID,
+                account_id=settings.WISE_ACCOUNT_ID
+            )
+            
+            # 2. Buscar transações dos últimos 15 minutos
+            end_time = datetime.utcnow()
+            start_time = end_time - timedelta(minutes=15)
+            
+            transactions = await wise_client.get_statement(
+                currency="USD",
+                interval_start=start_time,
+                interval_end=end_time
+            )
+            
+            # 3. Filtrar apenas créditos
+            credits = [tx for tx in transactions if tx["type"] == "CREDIT"]
+            
+            logger.info(
+                "wise_polling_fetched",
+                total_transactions=len(transactions),
+                credits=len(credits)
+            )
+            
+            # 4. Processar cada crédito
+            processed = 0
+            for tx in credits:
+                # Extrair dados
+                wise_ref_number = tx["referenceNumber"]
+                amount = tx["amount"]["value"]
+                currency = tx["amount"]["currency"]
+                payment_ref = tx["details"].get("paymentReference", "")
+                sender_name = tx["details"].get("senderName", "Unknown")
+                
+                # Verificar se já foi processado
+                existing = await db.query(Transaction).filter(
+                    Transaction.external_ref == wise_ref_number
+                ).first()
+                
+                if existing:
+                    logger.debug("transaction_already_processed", ref=wise_ref_number)
+                    continue
+                
+                # Validar referência EVA
+                if not payment_ref.startswith("EVA-"):
+                    logger.debug("skipping_non_eva_reference", payment_ref=payment_ref)
+                    continue
+                
+                # Buscar referência no DB
+                wise_ref = await db.query(WisePaymentReference).filter(
+                    WisePaymentReference.reference_code == payment_ref,
+                    WisePaymentReference.status == "pending"
+                ).first()
+                
+                if not wise_ref:
+                    logger.warning("reference_not_found_in_polling", payment_ref=payment_ref)
+                    # Criar transaction para revisão manual
+                    tx_pending = Transaction(
+                        user_id=None,
+                        amount=amount,
+                        currency=currency,
+                        provider="wise",
+                        status=TransactionStatus.WAITING_APPROVAL,
+                        external_ref=wise_ref_number,
+                        failure_reason=f"Reference not found: {payment_ref}"
+                    )
+                    db.add(tx_pending)
+                    continue
+                
+                # Validar valor
+                expected_amount = float(wise_ref.expected_amount)
+                if abs(amount - expected_amount) > 0.01:
+                    logger.warning(
+                        "amount_mismatch_in_polling",
+                        expected=expected_amount,
+                        received=amount
+                    )
+                    continue
+                
+                # Processar pagamento (mesma lógica do webhook)
+                await process_wise_payment(
+                    db=db,
+                    wise_ref=wise_ref,
+                    amount=amount,
+                    currency=currency,
+                    wise_ref_number=wise_ref_number,
+                    sender_name=sender_name
+                )
+                
+                processed += 1
+            
+            await db.commit()
+            
+            logger.info(
+                "wise_polling_completed",
+                processed=processed,
+                total_credits=len(credits)
+            )
+            
+            return {"processed": processed, "total": len(credits)}
+        
+        except Exception as e:
+            logger.error("wise_polling_error", error=str(e))
+            await db.rollback()
+            raise self.retry(exc=e, countdown=60)  # Retry em 1 minuto
+
+
+async def process_wise_payment(
+    db: AsyncSession,
+    wise_ref: WisePaymentReference,
+    amount: float,
+    currency: str,
+    wise_ref_number: str,
+    sender_name: str
+):
+    """
+    Processa pagamento Wise (lógica compartilhada webhook + polling).
+    
+    **DRY Principle**: Evita duplicação de código entre webhook e polling.
+    """
+    from app.models.subscription import Subscription, SubscriptionStatus
+    from datetime import timedelta
+    
+    # Criar transaction
+    tx = Transaction(
+        user_id=wise_ref.user_id,
+        amount=amount,
+        currency=currency,
+        provider="wise",
+        status=TransactionStatus.PAID,
+        external_ref=wise_ref_number
+    )
+    db.add(tx)
+    await db.flush()
+    
+    # Ativar/renovar subscription
+    subscription = await db.query(Subscription).filter(
+        Subscription.user_id == wise_ref.user_id,
+        Subscription.plan_tier == wise_ref.plan_tier
+    ).first()
+    
+    if subscription:
+        # Renovar
+        subscription.current_period_end = max(
+            subscription.current_period_end,
+            datetime.utcnow()
+        ) + timedelta(days=30)
+        subscription.status = SubscriptionStatus.ACTIVE
+    else:
+        # Criar nova
+        subscription = Subscription(
+            user_id=wise_ref.user_id,
+            plan_tier=wise_ref.plan_tier,
+            status=SubscriptionStatus.ACTIVE,
+            payment_method_default="wise",
+            current_period_start=datetime.utcnow(),
+            current_period_end=datetime.utcnow() + timedelta(days=30),
+            metadata_json={"sender_name": sender_name}
+        )
+        db.add(subscription)
+        await db.flush()
+    
+    tx.subscription_id = subscription.id
+    wise_ref.mark_as_used(subscription.id)
+    
+    # Notificações
+    await send_payment_confirmed_email(
+        user_id=wise_ref.user_id,
+        amount=amount,
+        currency=currency,
+        plan_tier=wise_ref.plan_tier,
+        transaction_id=tx.id
+    )
+    
+    logger.info(
+        "wise_payment_processed",
+        user_id=wise_ref.user_id,
+        transaction_id=tx.id
+    )
+```
+
+### 6.3 Celery Beat Schedule
+
+```python
+# app/core/celery_app.py
+from celery import Celery
+from celery.schedules import crontab
+
+app = Celery("eva")
+
+app.conf.beat_schedule = {
+    # Polling Wise a cada 5 minutos
+    "poll-wise-transactions": {
+        "task": "app.tasks.wise.poll_wise_transactions",
+        "schedule": crontab(minute="*/5"),  # */5 = a cada 5 minutos
+    },
+    
+    # Cleanup de referências expiradas (diário às 02:00)
+    "cleanup-expired-references": {
+        "task": "app.tasks.wise.cleanup_expired_references",
+        "schedule": crontab(hour=2, minute=0),
+    }
+}
+```
+
+### 6.4 Cliente API Wise (Helper)
+
+```python
+import httpx
+from datetime import datetime
+from typing import List, Dict
+import structlog
+
+logger = structlog.get_logger()
+
+class WiseAPIClient:
+    """Cliente para Wise API com métodos utilitários."""
+    
+    BASE_URL = "https://api.transferwise.com"
+    
+    def __init__(self, api_token: str, profile_id: int, account_id: int):
+        self.api_token = api_token
+        self.profile_id = profile_id
+        self.account_id = account_id
+        self.headers = {
+            "Authorization": f"Bearer {api_token}",
+            "Content-Type": "application/json"
+        }
+    
+    async def get_statement(
+        self,
+        currency: str,
+        interval_start: datetime,
+        interval_end: datetime
+    ) -> List[Dict]:
+        """
+        Busca extrato de transações.
+        
+        Args:
+            currency: USD, EUR, GBP, etc
+            interval_start: Data início (UTC)
+            interval_end: Data fim (UTC)
+        
+        Returns:
+            Lista de transações
+        """
+        url = f"{self.BASE_URL}/v3/profiles/{self.profile_id}/borderless-accounts/{self.account_id}/statement.json"
+        
+        params = {
+            "currency": currency,
+            "intervalStart": interval_start.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "intervalEnd": interval_end.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+            "type": "COMPACT"
+        }
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            
+            data = response.json()
+            return data.get("transactions", [])
+    
+    async def get_balance(self, currency: str) -> float:
+        """
+        Obtém saldo atual.
+        
+        Args:
+            currency: USD, EUR, GBP, etc
+        
+        Returns:
+            Saldo disponível
+        """
+        url = f"{self.BASE_URL}/v3/profiles/{self.profile_id}/balances"
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers)
+            response.raise_for_status()
+            
+            balances = response.json()
+            for balance in balances:
+                if balance["currency"] == currency:
+                    return balance["amount"]["value"]
+            
+            return 0.0
+    
+    async def get_bank_details(self, currency: str) -> Dict:
+        """
+        Obtém dados bancários para receber transferências.
+        
+        Args:
+            currency: USD, EUR, GBP, etc
+        
+        Returns:
+            Dados bancários (IBAN, routing, etc)
+        """
+        url = f"{self.BASE_URL}/v1/borderless-accounts/{self.account_id}/details"
+        params = {"currency": currency}
+        
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=self.headers, params=params)
+            response.raise_for_status()
+            
+            return response.json()
+```
+
+---
+
+## 7. FRONTEND REACT
+
+### 7.1 Componente Principal
+
+```typescript
+// components/WisePaymentInstructions.tsx
+
+import React, { useEffect, useState } from 'react';
+import { 
+  Card, 
+  CardContent, 
+  Typography, 
+  Button, 
+  Alert, 
+  Skeleton,
+  Box,
+  Chip,
+  Divider
+} from '@mui/material';
+import { 
+  ContentCopy, 
+  CheckCircle, 
+  Warning,
+  AccountBalance 
+} from '@mui/icons-material';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import axios from 'axios';
+
+interface WiseInstructions {
+  reference_code: string;
+  amount: number;
+  currency: string;
+  bank_details: {
+    account_holder: string;
+    iban?: string;
+    swift?: string;
+    routing_number?: string;
+    account_number?: string;
+    bank_name?: string;
+  };
+  expires_at: string;
+  plan_tier: string;
+}
+
+export const WisePaymentInstructions: React.FC<{
+  planTier: string;
+  amount: number;
+  currency: string;
+}> = ({ planTier, amount, currency }) => {
+  const [copied, setCopied] = useState(false);
+  const [paymentDetected, setPaymentDetected] = useState(false);
+  
+  // Fetch instructions
+  const { data, isLoading, error } = useQuery<WiseInstructions>({
+    queryKey: ['wise-instructions', planTier],
+    queryFn: async () => {
+      const response = await axios.post('/api/checkout/wise/instructions', {
+        plan_tier: planTier,
+        amount: amount,
+        currency: currency
+      });
+      return response.data;
+    }
+  });
+  
+  // Poll for payment detection (WebSocket seria melhor)
+  useEffect(() => {
+    if (!data) return;
+    
+    const interval = setInterval(async () => {
+      const response = await axios.get(
+        `/api/wise/check-payment/${data.reference_code}`
+      );
+      
+      if (response.data.status === 'paid') {
+        setPaymentDetected(true);
+        clearInterval(interval);
+      }
+    }, 10000); // Check a cada 10s
+    
+    return () => clearInterval(interval);
+  }, [data]);
+  
+  // Copy to clipboard
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+  
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent>
+          <Skeleton variant="text" width="60%" height={40} />
+          <Skeleton variant="rectangular" height={200} />
+        </CardContent>
+      </Card>
+    );
+  }
+  
+  if (error) {
+    return (
+      <Alert severity="error">
+        Failed to load payment instructions. Please try again.
+      </Alert>
+    );
+  }
+  
+  return (
+    <Card elevation={3}>
+      <CardContent>
+        {/* Header */}
+        <Box display="flex" alignItems="center" gap={2} mb={2}>
+          <AccountBalance color="primary" fontSize="large" />
+          <Box>
+            <Typography variant="h5" fontWeight="bold">
+              Bank Transfer Instructions
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Complete your payment via Wise
+            </Typography>
+          </Box>
+        </Box>
+        
+        <Divider sx={{ my: 2 }} />
+        
+        {/* Payment detected alert */}
+        {paymentDetected && (
+          <Alert 
+            severity="success" 
+            icon={<CheckCircle />}
+            sx={{ mb: 2 }}
+          >
+            Payment detected! Your subscription will be activated shortly.
+          </Alert>
+        )}
+        
+        {/* Amount */}
+        <Box mb={3} p={2} bgcolor="primary.light" borderRadius={1}>
+          <Typography variant="body2" color="text.secondary">
+            Amount to Transfer
+          </Typography>
+          <Typography variant="h4" fontWeight="bold" color="primary.dark">
+            {data.currency} {data.amount.toFixed(2)}
+          </Typography>
+        </Box>
+        
+        {/* Bank Details */}
+        <Box mb={3}>
+          <Typography variant="h6" gutterBottom>
+            Recipient Details
+          </Typography>
+          
+          <Box display="flex" flexDirection="column" gap={1.5}>
+            <InfoRow 
+              label="Account Holder" 
+              value={data.bank_details.account_holder} 
+            />
+            
+            {data.bank_details.iban && (
+              <InfoRow 
+                label="IBAN" 
+                value={data.bank_details.iban}
+                copyable 
+                onCopy={handleCopy}
+              />
+            )}
+            
+            {data.bank_details.swift && (
+              <InfoRow 
+                label="SWIFT/BIC" 
+                value={data.bank_details.swift}
+                copyable
+                onCopy={handleCopy}
+              />
+            )}
+            
+            {data.bank_details.routing_number && (
+              <InfoRow 
+                label="Routing Number" 
+                value={data.bank_details.routing_number}
+                copyable
+                onCopy={handleCopy}
+              />
+            )}
+            
+            {data.bank_details.account_number && (
+              <InfoRow 
+                label="Account Number" 
+                value={data.bank_details.account_number}
+                copyable
+                onCopy={handleCopy}
+              />
+            )}
+          </Box>
+        </Box>
+        
+        <Divider sx={{ my: 2 }} />
+        
+        {/* Reference Code (CRITICAL) */}
+        <Box 
+          p={2} 
+          bgcolor="error.light" 
+          borderRadius={1}
+          border="2px solid"
+          borderColor="error.main"
+        >
+          <Box display="flex" alignItems="center" gap={1} mb={1}>
+            <Warning color="error" />
+            <Typography variant="h6" fontWeight="bold" color="error.dark">
+              IMPORTANT: Payment Reference
+            </Typography>
+          </Box>
+          
+          <Typography variant="body2" color="error.dark" mb={2}>
+            You MUST include this reference code in your transfer. 
+            Without it, we cannot automatically activate your subscription.
+          </Typography>
+          
+          <Box 
+            p={2} 
+            bgcolor="white" 
+            borderRadius={1}
+            display="flex"
+            justifyContent="space-between"
+            alignItems="center"
+          >
+            <Typography 
+              variant="h5" 
+              fontFamily="monospace"
+              fontWeight="bold"
+            >
+              {data.reference_code}
+            </Typography>
+            
+            <Button
+              variant="contained"
+              startIcon={copied ? <CheckCircle /> : <ContentCopy />}
+              onClick={() => handleCopy(data.reference_code)}
+              color={copied ? "success" : "primary"}
+            >
+              {copied ? "Copied!" : "Copy"}
+            </Button>
+          </Box>
+        </Box>
+        
+        {/* Expiration */}
+        <Box mt={2}>
+          <Chip 
+            label={`Expires: ${new Date(data.expires_at).toLocaleString()}`}
+            size="small"
+            color="default"
+          />
+        </Box>
+        
+        {/* Instructions */}
+        <Box mt={3}>
+          <Typography variant="h6" gutterBottom>
+            How to Pay
+          </Typography>
+          <ol style={{ paddingLeft: 20 }}>
+            <li>
+              <Typography variant="body2">
+                Log in to your <strong>Wise account</strong> (web or app)
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2">
+                Send <strong>{data.currency} {data.amount.toFixed(2)}</strong> to the account details above
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2" color="error">
+                <strong>CRITICAL:</strong> Enter <code>{data.reference_code}</code> in the "Reference" or "Description" field
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2">
+                Complete the transfer
+              </Typography>
+            </li>
+            <li>
+              <Typography variant="body2">
+                Your subscription will be activated automatically within 15 minutes
+              </Typography>
+            </li>
+          </ol>
+        </Box>
+        
+        {/* Help */}
+        <Alert severity="info" sx={{ mt: 2 }}>
+          Need help? Contact support@eva.com with your reference code.
+        </Alert>
+      </CardContent>
+    </Card>
+  );
+};
+
+// Helper component for info rows
+const InfoRow: React.FC<{
+  label: string;
+  value: string;
+  copyable?: boolean;
+  onCopy?: (value: string) => void;
+}> = ({ label, value, copyable, onCopy }) => (
+  <Box display="flex" justifyContent="space-between" alignItems="center">
+    <Box>
+      <Typography variant="caption" color="text.secondary">
+        {label}
+      </Typography>
+      <Typography variant="body1" fontWeight="medium">
+        {value}
+      </Typography>
+    </Box>
+    
+    {copyable && onCopy && (
+      <Button
+        size="small"
+        startIcon={<ContentCopy />}
+        onClick={() => onCopy(value)}
+      >
+        Copy
+      </Button>
+    )}
+  </Box>
+);
+```
+
+---
+
+## 8. BACKEND PYTHON (FASTAPI)
+
+### 8.1 Endpoint: Gerar Instruções
+
+```python
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.database import get_db
+from app.dependencies import get_current_user
+from app.models.user import User
+from app.models.wise import WisePaymentReference
+from app.schemas.wise import WiseInstructionsRequest, WiseInstructionsResponse
+from app.services.wise import WiseAPIClient
+from app.core.config import settings
+
+router = APIRouter(prefix="/api/checkout/wise", tags=["Checkout - Wise"])
+
+@router.post("/instructions", response_model=WiseInstructionsResponse)
+async def get_wise_instructions(
+    data: WiseInstructionsRequest,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Gera instruções de pagamento Wise para o usuário.
+    
+    **Flow:**
+    1. Valida plano e moeda
+    2. Gera código de referência único
+    3. Salva referência no DB (expira em 7 dias)
+    4. Busca dados bancários da Wise API
+    5. Retorna instruções completas
+    
+    **Returns:**
+    - reference_code: Código único (EVA-USER-12345-A3B2)
+    - amount: Valor a transferir
+    - currency: Moeda
+    - bank_details: Dados bancários para transferência
+    - expires_at: Quando a referência expira
+    """
+    # Validar plano
+    plan_amounts = {
+        "gold": {
+            "USD": 59.90,
+            "EUR": 55.00,
+            "GBP": 49.00
+        },
+        "diamond": {
+            "USD": 99.90,
+            "EUR": 89.00,
+            "GBP": 79.00
+        }
+    }
+    
+    if data.plan_tier not in plan_amounts:
+        raise HTTPException(400, "Invalid plan tier")
+    
+    if data.currency not in plan_amounts[data.plan_tier]:
+        raise HTTPException(400, f"Currency {data.currency} not supported for {data.plan_tier}")
+    
+    amount = plan_amounts[data.plan_tier][data.currency]
+    
+    # Gerar referência
+    wise_ref = WisePaymentReference.generate_for_user(
+        user_id=user.id,
+        amount=amount,
+        currency=data.currency,
+        plan_tier=data.plan_tier
+    )
+    db.add(wise_ref)
+    await db.commit()
+    
+    # Buscar dados bancários (cache recomendado)
+    wise_client = WiseAPIClient(
+        api_token=settings.WISE_API_TOKEN,
+        profile_id=settings.WISE_PROFILE_ID,
+        account_id=settings.WISE_ACCOUNT_ID
+    )
+    
+    bank_details_raw = await wise_client.get_bank_details(data.currency)
+    
+    # Formatar response
+    bank_details = {}
+    for detail in bank_details_raw.get("details", []):
+        if detail["type"] == "iban":
+            bank_details = {
+                "account_holder": bank_details_raw.get("accountHolderName"),
+                "iban": detail.get("iban"),
+                "swift": detail.get("swift")
+            }
+        elif detail["type"] == "aba":
+            bank_details = {
+                "account_holder": bank_details_raw.get("accountHolderName"),
+                "routing_number": detail.get("routingNumber"),
+                "account_number": detail.get("accountNumber"),
+                "bank_name": detail.get("bankName")
+            }
+    
+    return WiseInstructionsResponse(
+        reference_code=wise_ref.reference_code,
+        amount=amount,
+        currency=data.currency,
+        bank_details=bank_details,
+        expires_at=wise_ref.expires_at,
+        plan_tier=data.plan_tier
+    )
+```
+
+### 8.2 Endpoint: Verificar Status
+
+```python
+@router.get("/check-payment/{reference_code}")
+async def check_payment_status(
+    reference_code: str,
+    user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Verifica se pagamento com referência foi processado.
+    
+    Usado pelo frontend para polling.
+    
+    **Returns:**
+    - status: pending | paid | expired
+    - transaction_id: Se pago
+    - subscription_id: Se pago
+    """
+    wise_ref = await db.query(WisePaymentReference).filter(
+        WisePaymentReference.reference_code == reference_code,
+        WisePaymentReference.user_id == user.id
+    ).first()
+    
+    if not wise_ref:
+        raise HTTPException(404, "Reference not found")
+    
+    if wise_ref.is_expired():
+        return {"status": "expired"}
+    
+    if wise_ref.status == "used":
+        return {
+            "status": "paid",
+            "transaction_id": wise_ref.subscription.transactions[0].id,
+            "subscription_id": wise_ref.subscription_id
+        }
+    
+    return {"status": "pending"}
+```
+
+---
+
+## 9. SEGURANÇA & VALIDAÇÃO
+
+### 9.1 Checklist de Segurança
+
+✅ **API Token Wise**
+- Usar token read-only (sem permissões de write)
+- Armazenar em Google Secret Manager (não em .env em produção)
+- Rotacionar a cada 6 meses
+- Monitorar uso via logs
+
+✅ **Webhook Signature**
+- Sempre validar HMAC-SHA256
+- Usar `hmac.compare_digest()` (timing-safe)
+- Rejeitar requests sem signature
+
+✅ **Referências Únicas**
+- Incluir checksum no código
+- Validar formato com regex
+- Verificar expiração antes de usar
+- Permitir uso único (mark as used)
+
+✅ **Validação de Valores**
+- Tolerância de ±0.01 para arredondamento
+- Validar moeda (USD, EUR, etc)
+- Rejeitar valores muito diferentes
+
+✅ **Idempotência**
+- Usar `external_ref` (Wise transaction ID) como chave
+- Verificar duplicatas antes de processar
+- Retornar 200 mesmo para duplicatas
+
+✅ **Rate Limiting**
+- Limite webhook endpoint: 100/min
+- Limite instruções: 5/min por usuário
+
+---
+
+## 10. RECONCILIAÇÃO & AUDITORIA
+
+### 10.1 Dashboard Admin
+
+```python
+from fastapi import APIRouter, Depends
+from sqlalchemy import func, and_
+from datetime import datetime, timedelta
+
+router = APIRouter(prefix="/api/admin/wise", tags=["Admin - Wise"])
+
+@router.get("/reconciliation")
+async def wise_reconciliation(
+    start_date: str,
+    end_date: str,
+    admin: User = Depends(require_admin),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Relatório de reconciliação Wise.
+    
+    Compara:
+    - Transações registradas no EVA
+    - Transações no extrato Wise
+    - Diferenças (anomalias)
+    """
+    start = datetime.fromisoformat(start_date)
+    end = datetime.fromisoformat(end_date)
+    
+    # 1. Buscar transações EVA
+    eva_transactions = await db.query(
+        Transaction
+    ).filter(
+        Transaction.provider == "wise",
+        Transaction.created_at >= start,
+        Transaction.created_at <= end
+    ).all()
+    
+    # 2. Buscar transações Wise via API
+    wise_client = WiseAPIClient(...)
+    wise_transactions = await wise_client.get_statement(
+        currency="USD",
+        interval_start=start,
+        interval_end=end
+    )
+    
+    # 3. Comparar
+    eva_refs = {tx.external_ref for tx in eva_transactions}
+    wise_refs = {tx["referenceNumber"] for tx in wise_transactions if tx["type"] == "CREDIT"}
+    
+    # 4. Encontrar discrepâncias
+    missing_in_eva = wise_refs - eva_refs
+    missing_in_wise = eva_refs - wise_refs
+    
+    return {
+        "period": {"start": start_date, "end": end_date},
+        "summary": {
+            "eva_count": len(eva_transactions),
+            "wise_count": len([t for t in wise_transactions if t["type"] == "CREDIT"]),
+            "matched": len(eva_refs & wise_refs),
+            "discrepancies": len(missing_in_eva) + len(missing_in_wise)
+        },
+        "missing_in_eva": list(missing_in_eva),
+        "missing_in_wise": list(missing_in_wise)
+    }
+```
+
+---
+
+## 11. CASOS DE USO AVANÇADOS
+
+### 11.1 Múltiplas Moedas
+
+**Cenário:** Cliente em UK quer pagar em GBP, cliente em EU em EUR.
+
+**Solução:**
+- Detectar país do IP do usuário
+- Sugerir moeda local
+- Permitir seleção manual
+- Calcular valor equivalente (usar API de câmbio)
+
+### 11.2 Renovações Automáticas
+
+**Problema:** Wise não suporta cobranças recorrentes automáticas.
+
+**Solução:**
+- 7 dias antes de expirar: enviar email com nova referência
+- 3 dias antes: enviar SMS/WhatsApp
+- 1 dia antes: push notification
+- Cliente faz nova transferência com nova referência
+
+### 11.3 Pagamentos Corporativos (B2B)
+
+**Diferença:** Empresas transferem de contas corporativas.
+
+**Adaptação:**
+- Permitir múltiplos usuários por organização
+- Código: `EVA-ORG-12345-XXXX` (em vez de USER)
+- Validação extra: verificar nome da empresa no sender
+
+---
+
+## 12. TROUBLESHOOTING
+
+### 12.1 Problemas Comuns
+
+**Problema:** Pagamento não detectado após 1 hora
+
+**Checklist:**
+1. Cliente incluiu o código de referência?
+2. Valor está correto (±0.01)?
+3. Moeda está correta?
+4. Webhook está funcionando? (verificar logs)
+5. Polling está rodando? (verificar Celery)
+6. Referência expirou?
+
+**Solução:** 
+- Buscar manualmente no statement Wise
+- Criar transaction manual no admin panel
+
+---
+
+**Problema:** Webhook retorna 401 Unauthorized
+
+**Causa:** Signature inválida
+
+**Solução:**
+- Verificar `WISE_WEBHOOK_SECRET`
+- Testar localmente com ngrok
+- Verificar header `X-Signature-SHA256`
+
+---
+
+**Problema:** Duplicatas (pagamento processado 2x)
+
+**Causa:** Falha na verificação de idempotência
+
+**Solução:**
+- Sempre verificar `external_ref` (Wise transaction ID)
+- Usar constraints UNIQUE no DB
+- Adicionar lock distribuído (Redis) se necessário
+
+---
+
+**Problema:** Cliente transferiu valor errado
+
+**Cenário:** Pagou $50 em vez de $59.90
+
+**Solução:**
+- Transaction fica em status `waiting_approval`
+- Admin revisa no painel
+- Opções:
+  - Solicitar complemento ($9.90)
+  - Oferecer plano inferior
+  - Reembolsar via Wise
+
+---
+
+## 13. MÉTRICAS & MONITORAMENTO
+
+### 13.1 KPIs Importantes
+
+**Conversão:**
+- Taxa de abandono após ver instruções
+- Tempo médio até pagamento
+- Taxa de erro (referências inválidas)
+
+**Performance:**
+- Latência webhook → ativação
+- Taxa de sucesso polling
+- Tempo de reconciliação
+
+**Financeiro:**
+- Volume total por moeda
+- Taxa de reembolsos
+- Custo médio Wise por transação
+
+### 13.2 Alertas
+
+Configure alertas para:
+- ❌ Webhook down por > 5 minutos
+- ❌ Polling falhou 3x seguidas
+- ⚠️ Pagamento > $500 (fraud detection)
+- ⚠️ Referência não encontrada (> 10/dia)
+- ⚠️ Discrepância na reconciliação
+
+---
+
+## CONCLUSÃO
+
+Este documento fornece uma implementação completa e production-ready de pagamentos via Wise com **automação total**.
+
+**Próximos Passos:**
+1. Configurar conta Wise Business
+2. Obter API token e IDs
+3. Implementar webhook endpoint
+4. Implementar polling como backup
+5. Testar em ambiente sandbox
+6. Deploy em produção
+7. Monitorar e otimizar
+
+**Suporte:**
+- Documentação Wise: https://docs.wise.com/api-docs
+- Suporte EVA: dev@eva.com
+
+---
+
+**Versão:** 1.0  
+**Data:** Janeiro 2026  
+**Autor:** Equipe EVA Engineering
