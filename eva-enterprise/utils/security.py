@@ -6,6 +6,7 @@ import bcrypt  # Using bcrypt directly instead of passlib
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from database.connection import get_db
 
 # Config
@@ -63,7 +64,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     # Check DB
     # Fix: Use 'usuarios' table (Portugues schema) matches routes_auth.py
     result = await db.execute(
-        "SELECT id, nome as name, email, tipo as role, ativo as active FROM usuarios WHERE email = :email", 
+        text("SELECT id, nome as name, email, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"), 
         {"email": email}
     )
     user = result.mappings().first()

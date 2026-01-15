@@ -1,0 +1,155 @@
+### Plano Mestre de Engenharia de Pagamentos v2.1
+
+Olá, sou Lu, e vou melhorar o plano que você forneceu adicionando detalhes técnicos mais profundos. Foquei em aspectos como bibliotecas Python específicas, configurações de segurança, handling de erros, integrações com APIs de gateways, esquemas de banco de dados mais completos, autenticação, e otimizações para escalabilidade. Mantive a estrutura original, mas expandi com precisão técnica para tornar o plano mais acionável. O sistema continua transformando o EVA em um Hub Financeiro Global, com backend em Python (FastAPI) e frontend em React, cobrindo Pix (Asaas), Cartão (Stripe), Bitcoin (Lightning via OpenNode/BTCPay), Wise e Nomad.
+
+🗺️ Arquitetura do Hub Financeiro (Python + React)
+O backend (api_financeiro) é o núcleo, usando FastAPI para APIs RESTful assíncronas, com SQLAlchemy para ORM no PostgreSQL. Ele gerencia o ciclo de vida das assinaturas sem manipular fundos diretamente, focando em eventos (webhooks e confirmações manuais). Para escalabilidade, use Uvicorn como ASGI server e integre Redis para caching de sessões e filas de tarefas (com Celery para jobs assíncronos).
+
+O Fluxo Unificado (com detalhes técnicos):
+1. React (Web Família): Usuário seleciona método via componentes como `<PaymentSelector />` (usando React Hook Form para validação de formulários e TanStack Query para fetching de dados).
+
+2. FastAPI: Gera "Intenção de Pagamento" usando bibliotecas específicas:
+   - Stripe: `stripe` SDK (versão 10.x) para criar Checkout Sessions.
+   - Asaas: `requests` ou SDK oficial para gerar Pix QR Codes.
+   - Bitcoin: `opennode` ou `btcpay-python` para invoices Lightning, convertendo BRL para BTC via API de cotação (e.g., Coingecko via proxy no ambiente de código).
+   - Wise/Nomad: Retorna JSON com instruções bancárias do banco de dados.
+
+3. Mundo Real: Transferência de fundos ocorre externamente.
+
+4. Confirmação:
+   - Automática: Webhooks validados com HMAC signatures (usando `hmac` e `hashlib` em Python).
+   - Manual: Upload de comprovante via Multipart Form Data, armazenado em AWS S3 com presigned URLs geradas pelo `boto3` SDK.
+
+5. FastAPI: Atualiza banco com transações ACID (usando transações do SQLAlchemy) e renova acesso via JWT tokens (biblioteca `PyJWT` para autenticação).
+
+Adicione middleware no FastAPI para rate limiting (`slowapi`) e logging (`structlog`) para monitorar fluxos.
+
+1. Modelagem de Dados (PostgreSQL com SQLAlchemy)
+Use migrações com Alembic para versionamento do schema. Adicionei campos para compliance (e.g., timestamps de auditoria) e índices para performance em consultas frequentes.
+
+A. Tabela `subscriptions` (Estado Atual):
+   - `id`: SERIAL PRIMARY KEY.
+   - `user_id`: INTEGER FOREIGN KEY (referencia `users.id`), INDEXADO.
+   - `status`: ENUM('active', 'past_due', 'canceled', 'trialing').
+   - `plan_tier`: ENUM('basic', 'gold', 'diamond').
+   - `current_period_start`: TIMESTAMP WITH TIME ZONE (início do período).
+   - `current_period_end`: TIMESTAMP WITH TIME ZONE (CRÍTICO: vence o acesso; use para queries como `WHERE current_period_end > NOW()`).
+   - `payment_method_default`: VARCHAR(50) (e.g., 'stripe_card', 'asaas_pix').
+   - `external_subscription_id`: VARCHAR(255) (ID no gateway; NULLABLE).
+   - `metadata_json`: JSONB (para dados extras, como frequência 'monthly'/'yearly').
+   - `created_at`: TIMESTAMP DEFAULT NOW().
+   - `updated_at`: TIMESTAMP DEFAULT NOW() ON UPDATE NOW().
+   - Índices: UNIQUE(user_id, plan_tier), BTREE(current_period_end).
+
+B. Tabela `transactions` (Extrato Financeiro):
+   - `id`: SERIAL PRIMARY KEY.
+   - `subscription_id`: INTEGER FOREIGN KEY (referencia `subscriptions.id`).
+   - `user_id`: INTEGER FOREIGN KEY (referencia `users.id`), INDEXADO.
+   - `amount`: DECIMAL(10,2) (e.g., 59.90).
+   - `currency`: VARCHAR(3) (e.g., 'BRL', 'USD', 'BTC').
+   - `provider`: ENUM('stripe', 'asaas', 'opennode', 'wise', 'nomad').
+   - `status`: ENUM('pending', 'paid', 'failed', 'waiting_approval', 'refunded').
+   - `external_ref`: VARCHAR(255) (ID/hash externo; UNIQUE).
+   - `proof_url`: VARCHAR(512) (URL S3; NULLABLE).
+   - `failure_reason`: TEXT (e.g., 'insufficient_funds'; para debugging).
+   - `created_at`: TIMESTAMP DEFAULT NOW().
+   - `updated_at`: TIMESTAMP DEFAULT NOW() ON UPDATE NOW().
+   - Índices: BTREE(user_id, created_at DESC), HASH(external_ref).
+
+C. Tabela `payment_instructions` (Dados Bancários Estáticos):
+   - `id`: SERIAL PRIMARY KEY.
+   - `provider`: ENUM('wise', 'nomad').
+   - `currency`: VARCHAR(3).
+   - `details_json`: JSONB (e.g., {"iban": "DE89...", "swift": "WISEB...", "routing": "0260..."}).
+   - `active`: BOOLEAN DEFAULT TRUE (para desativar instruções obsoletas).
+   - `updated_at`: TIMESTAMP DEFAULT NOW() ON UPDATE NOW().
+
+Para queries complexas, use views PostgreSQL, como `vw_active_subscriptions` para joins eficientes.
+
+2. Definição dos Endpoints (API Python / FastAPI)
+Use Pydantic para schemas de request/response (e.g., `class CheckoutRequest(BaseModel): plan_tier: str; frequency: str;`). Autenticação via JWT Bearer (dependência `fastapi.security.OAuth2PasswordBearer`). Para webhooks, exponha rotas sem auth, mas valide signatures.
+
+🟢 Módulo Checkout (Saída):
+- POST `/api/checkout/stripe-session`:
+  - Body: `{ "plan_tier": "gold", "frequency": "monthly" }`.
+  - Lógica: `stripe.checkout.Session.create(...)` com `mode='subscription'`, `success_url` e `cancel_url`. Retorna `{ "url": session.url }`.
+  - Erro: Raise HTTPException(400) se plano inválido.
+
+- POST `/api/checkout/asaas-pix`:
+  - Usa Asaas API: `requests.post('https://api.asaas.com/v3/payments', auth=Bearer(API_KEY))` para criar cobrança Pix.
+  - Retorna `{ "qr_code_url": "...", "copia_cola": "000201..." }`.
+  - Converta valor com taxa de câmbio cached no Redis.
+
+- POST `/api/checkout/bitcoin`:
+  - Usa `opennode.create_invoice(amount=amount_in_sats, currency='BRL')` (conversão via Coingecko: `cg.get_price(ids='bitcoin', vs_currencies='brl')`).
+  - Retorna `{ "qr_code": "lightning:ln...", "invoice_hash": "..." }` com expiração de 15min.
+  - Handle volatilidade: Adicione 5% buffer no valor.
+
+- GET `/api/checkout/instructions/{provider}`:
+  - Query param: `currency` (opcional).
+  - Retorna JSON de `payment_instructions.details_json` filtrado por provider/currency.
+  - Cache resposta com FastAPI's `@cache` decorator.
+
+🔵 Módulo Confirmação Manual (Wise/Nomad):
+- POST `/api/checkout/upload-receipt`:
+  - Multipart: `file: UploadFile`, `transaction_id: int`.
+  - Lógica: `boto3.client('s3').generate_presigned_post(...)` para upload direto; atualiza `transactions.proof_url` e status.
+  - Notificação: Integre com Twilio SDK para SMS/email ao admin.
+  - Validação: Verifique MIME type (image/pdf) e tamanho < 5MB.
+
+🟠 Módulo Webhooks (Entrada Automática):
+- POST `/api/webhooks/stripe`:
+  - Validação: `stripe.Webhook.construct_event(payload, sig_header, SECRET)`.
+- POST `/api/webhooks/asaas`:
+  - Validação: HMAC com `hashlib.sha256` e chave secreta.
+- POST `/api/webhooks/bitcoin` (OpenNode):
+  - Validação: Verifique `signature` no payload.
+  - Lógica comum: Encontre transaction por `external_ref`, atualize status para 'paid', estenda `subscriptions.current_period_end` (e.g., +30 dias via `datetime.timedelta`).
+  - Use Celery para tasks assíncronas se webhook falhar (retry policy).
+
+🔴 Módulo Admin (Backoffice):
+- Protegido por role-based auth (e.g., middleware checando JWT claims 'is_admin').
+- GET `/api/admin/pending-receipts`:
+  - Retorna lista paginada (usando SQLAlchemy's `limit/offset`) de transactions com status 'waiting_approval'.
+- POST `/api/admin/approve-transaction/{id}`:
+  - Body: `{ "notes": "opcional" }`.
+  - Atualiza status para 'paid', estende subscription, envia confirmação via email (usando `smtplib` ou SendGrid SDK).
+
+3. Estrutura do Frontend (React)
+Use TypeScript para tipagem, com Axios para chamadas API (interceptors para JWT refresh). Estado global via Redux Toolkit ou Context API. Para UI, Material-UI ou Ant Design.
+
+Tela: `SubscriptionPlan` (componente principal):
+- Seletor de Frequência: Radio buttons com desconto calculado (e.g., anual = mensal * 12 * 0.9).
+- Cards de Planos: `<PlanCard tier="gold" price={59.90} features={["Voz Clonada", ...]} />`.
+
+Componente: `PaymentMethodSelector`:
+- Tabs via `<Tabs />` de MUI.
+1. 💳 Cartão (Stripe): Botão redireciona para URL de `/api/checkout/stripe-session`.
+2. 💠 Pix (Asaas): Exibe QR via `<img src={qr_code_url} />`; polling com `useInterval` (verifica status via GET `/api/transactions/{id}/status` a cada 5s).
+3. ⚡ Bitcoin: QR Lightning com countdown timer (use `moment.js` para expiração); polling similar.
+4. 🌎 Internacional (Wise/Nomad):
+   - Passo 1: Fetch `/api/checkout/instructions/{provider}` e exibe em tabela (e.g., IBAN, valor convertido via API de câmbio).
+   - Passo 2: `<Dropzone />` de `react-dropzone` para upload; envia para `/api/checkout/upload-receipt` com progress bar.
+
+Adicione error boundaries (React ErrorBoundary) e loaders (Skeleton UI) para UX suave.
+
+4. Lógica de Negócio "Grace Period" (O Diferencial EVA)
+Implemente com Celery (beat scheduler) + Redis como broker. Cronjob diário: `@app.task` rodando `celery beat` às 04:00 AM UTC (ajuste para timezone com `pytz`).
+
+1. Query: `subscriptions.query.filter(current_period_end < datetime.utcnow() - timedelta(days=1))`.
+2. Régua de Cobrança (escalonada por dias atrasados):
+   - Dia +1: Email via SendGrid (`sendgrid-python`).
+   - Dia +3: WhatsApp via Twilio SDK (`twilio.rest.Client`).
+   - Dia +7: Push via Firebase FCM (integre com `pyfcm` no backend).
+   - Dia +10: Soft Block – Atualize status para 'past_due'; middleware API checa e restringe endpoints premium.
+   - Dia +30: Hard Block – Status 'canceled'; redirecione usuário para tela de renovação.
+
+Adicione logging de ações para compliance (e.g., GDPR com retenção de 7 anos).
+
+Resumo da Execução (com Milestones Técnicos)
+1. Banco: Crie schema com Alembic (`alembic init`, `alembic revision --autogenerate`).
+2. Gateways: Configure chaves API no `.env` (usando `python-dotenv`); teste sandboxes (Stripe Test Mode, Asaas Sandbox).
+3. FastAPI: Estrutura com routers (`APIRouter`) para módulos; deploy com Docker Compose (inclua PostgreSQL e Redis).
+4. React: Setup com Vite; integre ESLint/Prettier; teste e2e com Cypress.
+5. Segurança: HTTPS obrigatório (Let's Encrypt); OWASP top 10 (e.g., SQL injection via prepared statements); rate limit em webhooks.
+6. Monitoramento: Integre Sentry para errors e Prometheus para metrics.

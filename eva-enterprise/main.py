@@ -33,7 +33,13 @@ from api import (
     routes_usuarios_saude,
     routes_saude,
     routes_dashboard_saude,
-    routes_dashboard  # ← NOVO (Dashboard de Monitoramento)
+    routes_dashboard,  # ← NOVO (Dashboard de Monitoramento)
+    routes_voice,  # ← NOVO (Voice Cloning)
+    # Financial Hub Routes
+    routes_checkout,  # ← NOVO (Checkout de Pagamentos)
+    routes_webhooks,  # ← NOVO (Webhooks de Gateways)
+    routes_subscriptions,  # ← NOVO (Gerenciar Assinaturas)
+    routes_admin_payments  # ← NOVO (Admin de Pagamentos)
 )
 
 load_dotenv()
@@ -97,6 +103,14 @@ app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=[
 # Dashboard de Monitoramento (Thinking Mode, A/B Testing, Epidemiologia)
 app.include_router(routes_dashboard.router, prefix="/api/v1", tags=["Dashboard"])
 
+# Voice Cloning (EVA-Voice microservice integration)
+app.include_router(routes_voice.router, prefix="/api/v1", tags=["Voice"])
+
+# Financial Hub (Pagamentos e Assinaturas)
+app.include_router(routes_checkout.router, prefix="/api/v1", tags=["Checkout"])
+app.include_router(routes_webhooks.router, prefix="/api/v1", tags=["Webhooks"])
+app.include_router(routes_subscriptions.router, prefix="/api/v1", tags=["Subscriptions"])
+app.include_router(routes_admin_payments.router, prefix="/api/v1", tags=["Admin - Payments"])
 
 
 # ======================

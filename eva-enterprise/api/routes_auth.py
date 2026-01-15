@@ -32,9 +32,9 @@ class GoogleLoginRequest(BaseModel):
 
 @router.post("/login", response_model=Token)
 async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Depends(get_db)):
-    # 1. Fetch User
+    # 1. Fetch User with Subscription Tier
     result = await db.execute(
-        text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
+        text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"),
         {"email": form_data.email}
     )
     user = result.mappings().first()
@@ -63,7 +63,12 @@ async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Dep
     # 3. Create Token
     access_token_expires = timedelta(minutes=60 * 24) # 1 day
     access_token = create_access_token(
-        data={"sub": user["email"], "role": user["role"], "user_id": user["id"]},
+        data={
+            "sub": user["email"], 
+            "role": user["role"], 
+            "user_id": user["id"],
+            "subscription_tier": user.get("subscription_tier", "basic")
+        },
         expires_delta=access_token_expires
     )
     
@@ -111,7 +116,12 @@ async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
 
     # 4. Generate Token
     access_token = create_access_token(
-        data={"sub": new_user["email"], "role": new_user["role"], "user_id": new_user["id"]}
+        data={
+            "sub": new_user["email"], 
+            "role": new_user["role"], 
+            "user_id": new_user["id"],
+            "subscription_tier": "basic"  # Default for new users
+        }
     )
 
     return {"access_token": access_token, "token_type": "bearer"}
@@ -129,7 +139,7 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
 
         # 2. Check DB
         result = await db.execute(
-            text("SELECT id, email, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
+            text("SELECT id, email, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"),
             {"email": email}
         )
         user = result.mappings().first()
@@ -169,7 +179,12 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
 
         # 3. Create Token
         access_token = create_access_token(
-            data={"sub": email, "role": user_role, "user_id": user_id}
+            data={
+                "sub": email, 
+                "role": user_role, 
+                "user_id": user_id,
+                "subscription_tier": user.get("subscription_tier", "basic") if user else "basic"
+            }
         )
         return {"access_token": access_token, "token_type": "bearer"}
 
