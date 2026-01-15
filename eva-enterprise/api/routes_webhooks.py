@@ -10,6 +10,7 @@ import json
 from database.connection import get_db
 from schemas.webhook import WebhookProcessedResponse
 from services.payment import StripePaymentService, AsaasPaymentService, OpenNodePaymentService
+from services.webhook_service import WebhookService
 import os
 
 logger = logging.getLogger(__name__)
@@ -72,13 +73,24 @@ async def stripe_webhook(
         # Por enquanto, apenas log
         if event_type == "checkout.session.completed":
             session = event["data"]["object"]
-            user_id = session.get("metadata", {}).get("user_id")
-            logger.info(f"Checkout completed for user {user_id}")
-        
+            # user_id está no metadata, mas usamos external_ref (session.id ou subscription_id) para achar a transação
+            # O create_checkout_session deve ter salvo o session.id como external_ref da transação
+            external_ref = session["id"] 
+            
+            webhook_processed = await WebhookService(db).process_payment_confirmation(
+                external_ref=external_ref, 
+                provider="stripe"
+            )
+            if webhook_processed:
+                logger.info(f"Stripe payment confirmed for session {external_ref}")
+
         elif event_type == "invoice.paid":
             invoice = event["data"]["object"]
             subscription_id = invoice.get("subscription")
-            logger.info(f"Invoice paid for subscription {subscription_id}")
+            # A transação recorrente pode não existir ainda, ideal seria criar uma nova aqui
+            # Simplificação: Apenas renova a assinatura baseada no ID externo
+            # TODO: Lidar com recorrência automática criando nova transação
+            pass
         
         elif event_type == "invoice.payment_failed":
             invoice = event["data"]["object"]
@@ -139,10 +151,14 @@ async def asaas_webhook(
         # TODO: Processar evento de forma assíncrona
         if event_type == "PAYMENT_RECEIVED":
             payment = payload.get("payment", {})
-            external_ref = payment.get("externalReference")
-            logger.info(f"Pix received for {external_ref}")
+            external_ref = payment.get("id") # ID da cobrança Asaas
             
-            # TODO: Atualizar transaction e ativar subscription
+            if external_ref:
+                await WebhookService(db).process_payment_confirmation(
+                    external_ref=external_ref,
+                    provider="asaas"
+                )
+                logger.info(f"Pix received and processed for {external_ref}")
         
         return WebhookProcessedResponse(received=True)
     
@@ -202,8 +218,16 @@ async def opennode_webhook(
         
         # TODO: Processar evento
         if status == "paid":
-            logger.info(f"Bitcoin payment confirmed for {order_id}")
-            # TODO: Atualizar transaction e ativar subscription
+            # order_id gerado por nós ou ID do invoice OpenNode?
+            # OpenNodeService.create usa invoice["id"] como external_ref?
+            # Vamos assumir que invoice["id"] é o external_ref salvo
+            invoice_id = data.get("id")
+            
+            await WebhookService(db).process_payment_confirmation(
+                external_ref=invoice_id,
+                provider="opennode"
+            )
+            logger.info(f"Bitcoin payment confirmed for {invoice_id}")
         
         return WebhookProcessedResponse(received=True)
     

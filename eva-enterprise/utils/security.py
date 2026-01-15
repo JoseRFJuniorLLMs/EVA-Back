@@ -85,3 +85,25 @@ def check_role(required_roles: list):
             )
         return user
     return role_checker
+
+def require_subscription(min_tier: str = "basic"):
+    """
+    Dependency para exigir um nível mínimo de assinatura.
+    Hierarquia: basic < gold < diamond
+    """
+    tiers = {"basic": 0, "gold": 1, "diamond": 2}
+    
+    async def subscription_checker(user = Depends(get_current_user)):
+        user_tier = user.get("subscription_tier", "basic")
+        
+        # Admin access always allowed
+        if user.get("role") == "admin":
+            return user
+            
+        if tiers.get(user_tier, 0) < tiers.get(min_tier, 0):
+             raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Subscription tier '{min_tier}' or higher required. Current: '{user_tier}'"
+            )
+        return user
+    return subscription_checker

@@ -24,8 +24,13 @@ from services.payment import (
     StripePaymentService,
     AsaasPaymentService,
     OpenNodePaymentService,
+    OpenNodePaymentService,
     WisePaymentService
 )
+from services.storage_service import StorageService
+from database.models.transaction import Transaction
+from sqlalchemy import select, update
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -275,8 +280,50 @@ async def upload_payment_receipt(
     if len(content) > 5 * 1024 * 1024:  # 5MB
         raise HTTPException(400, detail="Arquivo muito grande (máximo 5MB)")
     
-    # TODO: Implementar upload para GCS
-    # TODO: Atualizar transaction no banco
-    # TODO: Enviar notificação para admin
-    
-    raise HTTPException(501, detail="Upload de comprovante não implementado ainda")
+    try:
+        # 1. Buscar transação
+        stmt = select(Transaction).where(
+            Transaction.id == transaction_id,
+            Transaction.user_id == user_id
+        )
+        result = await db.execute(stmt)
+        transaction = result.scalar_one_or_none()
+        
+        if not transaction:
+            raise HTTPException(404, detail="Transação não encontrada")
+            
+        # 2. Upload para GCS
+        storage_service = StorageService()
+        filename = f"receipts/user_{user_id}/trans_{transaction_id}_{file.filename}"
+        
+        # Reset file pointer since we read it for size check
+        await file.seek(0)
+        
+        gcs_url = await storage_service.upload_file(
+            file_obj=file.file,
+            destination_blob_name=filename,
+            content_type=file.content_type
+        )
+        
+        # 3. Atualizar Transação
+        transaction.proof_url = gcs_url
+        transaction.status = "waiting_approval"
+        transaction.updated_at = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(transaction)
+        
+        logger.info(f"Receipt uploaded for transaction {transaction_id}")
+        
+        # TODO: Notificar Admin (email/msg)
+        
+        return ReceiptUploadResponse(
+            transaction_id=transaction.id,
+            status=transaction.status,
+            proof_url=gcs_url,
+            message="Comprovante enviado com sucesso. Aguardando aprovação."
+        )
+
+    except Exception as e:
+        logger.error(f"Upload receipt error: {e}", extra={"user_id": user_id})
+        raise HTTPException(500, detail=f"Erro ao processar upload: {str(e)}")

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update, delete as sql_delete
 from database.connection import get_db
 from database.ia_service import IAService
+from utils.security import require_subscription
 from utils.pagination import get_pagination_params, PaginationParams, PaginatedResponse
 from schemas import (
     PadraoComportamentoResponse,
@@ -40,7 +41,7 @@ async def listar_padroes(
         limit=pagination.limit
     )
 
-@router.post("/padroes/analisar")
+@router.post("/padroes/analisar", dependencies=[Depends(require_subscription("diamond"))])
 async def analisar_padroes(
     idoso_id: int = Query(..., description="ID do idoso para análise"),
     db: AsyncSession = Depends(get_db)
@@ -107,7 +108,7 @@ async def listar_predicoes(
         limit=pagination.limit
     )
 
-@router.post("/predicoes/analisar")
+@router.post("/predicoes/analisar", dependencies=[Depends(require_subscription("diamond"))])
 async def gerar_predicao(
     idoso_id: int = Query(..., description="ID do idoso"),
     db: AsyncSession = Depends(get_db)
@@ -155,7 +156,7 @@ async def detalhar_predicao(id: int, db: AsyncSession = Depends(get_db)):
 
 # ==================== ANÁLISE DE EMOÇÃO ====================
 
-@router.post("/emocao/analisar-chamada")
+@router.post("/emocao/analisar-chamada", dependencies=[Depends(require_subscription("gold"))])
 async def analisar_emocao_chamada(
     ligacao_id: int = Query(..., description="ID da ligação/histórico"),
     db: AsyncSession = Depends(get_db)
@@ -240,7 +241,7 @@ async def listar_insights(
         limit=pagination.limit
     )
 
-@router.post("/insights/gerar")
+@router.post("/insights/gerar", dependencies=[Depends(require_subscription("gold"))])
 async def gerar_insights(
     idoso_id: int = Query(..., description="ID do idoso"),
     db: AsyncSession = Depends(get_db)

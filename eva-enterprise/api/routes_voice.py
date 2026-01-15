@@ -9,6 +9,7 @@ from typing import List, Optional
 import httpx
 import os
 from database.connection import get_db
+from utils.security import require_subscription
 
 router = APIRouter()
 
@@ -19,7 +20,7 @@ EVA_VOICE_URL = os.getenv("EVA_VOICE_URL", "http://localhost:8001")
 # VOICE CLONING
 # ==========================================
 
-@router.post("/voices/clone")
+@router.post("/voices/clone", dependencies=[Depends(require_subscription("gold"))])
 async def clone_voice(
     audio: UploadFile = File(...),
     idoso_id: int = Form(...),
@@ -111,7 +112,7 @@ async def clone_voice(
         raise HTTPException(500, f"Erro ao clonar voz: {str(e)}")
 
 
-@router.post("/voices/speak")
+@router.post("/voices/speak", dependencies=[Depends(require_subscription("gold"))])
 async def generate_speech(
     text: str = Form(...),
     idoso_id: int = Form(...),
@@ -300,7 +301,7 @@ async def check_voice_service():
         }
 
 
-@router.post("/voices/batch-cache")
+@router.post("/voices/batch-cache", dependencies=[Depends(require_subscription("gold"))])
 async def batch_cache_voices(
     idoso_id: int = Form(...),
     texts: List[str] = Form(...),
