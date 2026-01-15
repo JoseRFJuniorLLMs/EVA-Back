@@ -173,6 +173,8 @@ class Agendamento(Base):
     id = Column(Integer, primary_key=True)
     idoso_id = Column(Integer, ForeignKey('idosos.id'))
     tipo = Column(String, nullable=False)
+    # Link Vital conforme diagrama de arquitetura (Operational Module)
+    medicamento_id = Column(Integer, ForeignKey('medicamentos.id'), nullable=True)
     data_hora_agendada = Column(DateTime, nullable=False)
     data_hora_realizada = Column(DateTime)
     max_retries = Column(Integer, default=3)
