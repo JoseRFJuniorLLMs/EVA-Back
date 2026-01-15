@@ -32,7 +32,8 @@ from api import (
     # Health Data Routes
     routes_usuarios_saude,
     routes_saude,
-    routes_dashboard_saude
+    routes_dashboard_saude,
+    routes_dashboard  # ← NOVO (Dashboard de Monitoramento)
 )
 
 load_dotenv()
@@ -92,6 +93,9 @@ app.include_router(routes_ia.router, prefix="/api/v1/ia", tags=["IA Avançada"])
 app.include_router(routes_usuarios_saude.router, prefix="/api/v1/saude/usuarios", tags=["Saúde - Usuários"])
 app.include_router(routes_saude.router, prefix="/api/v1/saude", tags=["Saúde - Dados"])
 app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=["Saúde - Analytics"])
+
+# Dashboard de Monitoramento (Thinking Mode, A/B Testing, Epidemiologia)
+app.include_router(routes_dashboard.router, prefix="/api/v1", tags=["Dashboard"])
 
 
 
