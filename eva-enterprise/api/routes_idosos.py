@@ -248,3 +248,60 @@ async def update_idoso_device_token(
     if not success:
         raise HTTPException(status_code=400, detail="Erro ao atualizar o token do dispositivo")
     return {"status": "success", "message": "Token atualizado corretamente"}
+
+
+@router.post("/{id}/notify")
+async def notify_idoso(id: int, title: str, body: str, db: AsyncSession = Depends(get_db)):
+    """
+    Envia uma notificação push direta para o idoso.
+    """
+    repo = IdosoRepository(db)
+    idoso = await repo.get_by_id(id)
+    if not idoso or not idoso.device_token:
+        raise HTTPException(status_code=404, detail="Idoso não encontrado ou sem device_token")
+    
+    from services.notification_service import NotificationService
+    notifier = NotificationService()
+    success = notifier.send_push_notification(
+        token=idoso.device_token,
+        title=title,
+        body=body,
+        data={"type": "generic_notification"}
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Falha ao enviar notificação")
+        
+    return {"status": "success", "message": "Notificação enviada"}
+
+
+@router.post("/{id}/sync-device")
+async def sync_device_data(id: int, db: AsyncSession = Depends(get_db)):
+    """
+    Envia um 'Silent Push' para o dispositivo do idoso,
+    forçando o EVA-Mobile a coletar dados de saúde (Health Connect) e enviar para o backend.
+    """
+    repo = IdosoRepository(db)
+    idoso = await repo.get_by_id(id)
+    if not idoso or not idoso.device_token:
+        raise HTTPException(status_code=404, detail="Idoso não encontrado ou sem device_token")
+    
+    from services.notification_service import NotificationService
+    notifier = NotificationService()
+    
+    # Payload específico que o App reconhece para iniciar o sync
+    data_payload = {
+        "action": "HEALTH_SYNC",
+        "idosoId": str(id)
+    }
+    
+    success = notifier.send_silent_data_message(
+        token=idoso.device_token,
+        data=data_payload
+    )
+    
+    if not success:
+        raise HTTPException(status_code=500, detail="Falha ao enviar comando de sincronização")
+        
+    return {"status": "success", "message": "Comando de sincronização enviado"}
+

@@ -53,6 +53,31 @@ class NotificationService:
             logger.error(f"Falha ao enviar push: {e}")
             return False
 
+    def send_silent_data_message(self, token: str, data: dict):
+        """Envia uma mensagem silenciosa (apenas dados) para acordar o app em background."""
+        if not firebase_admin._apps:
+            return False
+
+        try:
+            # Android requer 'priority': 'high' nas opções para acordar background? 
+            # No FCM v1, isso é configurado via AndroidConfig -> priority='high'
+            
+            # Construindo mensagem APENAS com data
+            message = messaging.Message(
+                data=data or {},
+                token=token,
+                android=messaging.AndroidConfig(
+                    priority='high', # Crítico para garantir entrega imediata
+                )
+            )
+            response = messaging.send(message)
+            logger.info(f"Silent Push enviado com sucesso: {response}")
+            return True
+        except Exception as e:
+            logger.error(f"Falha ao enviar Silent Push: {e}")
+            return False
+
+
     def send_multicast_notification(self, tokens: list, title: str, body: str, data: dict = None):
         """Envia para múltiplos dispositivos."""
         if not tokens or not firebase_admin._apps:
