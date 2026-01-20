@@ -3,9 +3,8 @@ from sqlalchemy import select, update
 from datetime import datetime, timedelta
 import logging
 
-from database.models.transaction import Transaction
-from database.models.subscription import Subscription
-from database.models.user import User
+from database.payment_models import Transaction, Subscription
+from database.models import Usuario as User
 
 logger = logging.getLogger(__name__)
 
