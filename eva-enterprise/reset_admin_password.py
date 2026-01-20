@@ -38,6 +38,11 @@ async def reset_admin_password():
         print("❌ DATABASE_URL não encontrada no .env")
         return
     
+    # PATCH: Forçar driver assíncrono (asyncpg) se estiver usando driver padrão
+    if "postgresql://" in DATABASE_URL and "asyncpg" not in DATABASE_URL:
+        print("⚠️ Ajustando DATABASE_URL para usar driver asyncpg...")
+        DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://")
+    
     # Criar engine assíncrono
     engine = create_async_engine(DATABASE_URL, echo=True)
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
