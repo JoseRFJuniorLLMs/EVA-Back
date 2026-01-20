@@ -67,7 +67,8 @@ app = FastAPI(
 # Isso garante que o Flutter Web (browser) consiga falar com o Back
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Libera geral (Web, Localhost, IP)
+    # allow_origins=["*"],  # Antigo: Pode conflitar com cookies/credentials
+    allow_origin_regex=".*", # Permite QUALQUER origem (http/https/localhost) de forma dinâmica
     allow_credentials=True,
     allow_methods=["*"],  # Libera GET, POST, PUT, PATCH, DELETE, OPTIONS
     allow_headers=["*"],  # Libera todos os cabeçalhos
