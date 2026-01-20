@@ -107,7 +107,7 @@ async def reset_admin_password():
                 {"email": admin_email}
             )
             updated_user = result.mappings().first()
-            
+            //reste
             print(f"\n📋 Status Final:")
             print(f"   Email: {updated_user['email']}")
             print(f"   Tipo: {updated_user['tipo']}")
