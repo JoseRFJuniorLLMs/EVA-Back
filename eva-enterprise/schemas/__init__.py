@@ -71,3 +71,6 @@ __all__ = [
     "OpenNodeWebhookEvent",
     "WebhookProcessedResponse",
 ]
+
+# Import everything from the main legacy schema file
+from .main import *
