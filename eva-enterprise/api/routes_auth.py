@@ -16,6 +16,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 class Token(BaseModel):
     access_token: str
     token_type: str
+    user: dict | None = None
 
 class LoginRequest(BaseModel):
     email: EmailStr
@@ -81,7 +82,16 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     )
     await db.commit()
 
-    return {"access_token": access_token, "token_type": "bearer"}
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "id": user["id"],
+            "email": user["email"],
+            "role": user["role"],
+            "active": user["active"]
+        }
+    }
 
 @router.post("/register", response_model=Token, status_code=201)
 async def register(req: RegisterRequest, db: AsyncSession = Depends(get_db)):
