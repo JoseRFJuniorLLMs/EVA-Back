@@ -30,12 +30,14 @@ class RegisterRequest(BaseModel):
 class GoogleLoginRequest(BaseModel):
     token: str
 
+from fastapi.security import OAuth2PasswordRequestForm
+
 @router.post("/login", response_model=Token)
-async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     # 1. Fetch User with Subscription Tier
     result = await db.execute(
         text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"),
-        {"email": form_data.email}
+        {"email": form_data.username}
     )
     user = result.mappings().first()
 
@@ -50,7 +52,7 @@ async def login_for_access_token(form_data: LoginRequest, db: AsyncSession = Dep
     s_hash = user["password_hash"].strip()
     
     # Verify password hash
-    if not verify_password(form_data.senha_hash, s_hash):
+    if not verify_password(form_data.password, s_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Credenciais inválidas",
