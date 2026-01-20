@@ -36,7 +36,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: AsyncSession = Depends(get_db)):
     # 1. Fetch User with Subscription Tier
     result = await db.execute(
-        text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"),
+        text("SELECT id, email, senha_hash as password_hash, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
         {"email": form_data.username}
     )
     user = result.mappings().first()
@@ -69,15 +69,15 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
             "sub": user["email"], 
             "role": user["role"], 
             "user_id": user["id"],
-            "subscription_tier": user.get("subscription_tier", "basic")
+            "subscription_tier": "basic"
         },
         expires_delta=access_token_expires
     )
     
     # 4. Audit Log (Async fire & forget usually, but here await)
     await db.execute(
-        text("INSERT INTO auth_audit_logs (user_id, action, ip_address) VALUES (:uid, 'LOGIN', :ip)"),
-        {"uid": user["id"], "ip": "0.0.0.0"} # TODO: catch request IP
+        text("INSERT INTO audit_logs (usuario_email, acao, ip_address) VALUES (:email, 'LOGIN', :ip)"),
+        {"email": user["email"], "ip": "0.0.0.0"} # TODO: catch request IP
     )
     await db.commit()
 
@@ -141,7 +141,7 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
 
         # 2. Check DB
         result = await db.execute(
-            text("SELECT id, email, tipo as role, ativo as active, subscription_tier FROM usuarios WHERE email = :email"),
+            text("SELECT id, email, tipo as role, ativo as active FROM usuarios WHERE email = :email"),
             {"email": email}
         )
         user = result.mappings().first()
@@ -185,7 +185,7 @@ async def google_login(req: GoogleLoginRequest, db: AsyncSession = Depends(get_d
                 "sub": email, 
                 "role": user_role, 
                 "user_id": user_id,
-                "subscription_tier": user.get("subscription_tier", "basic") if user else "basic"
+                "subscription_tier": "basic"
             }
         )
         return {"access_token": access_token, "token_type": "bearer"}
