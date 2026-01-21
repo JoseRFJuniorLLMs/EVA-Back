@@ -29,6 +29,7 @@ from api import (
     routes_ia,
     routes_cuidadores,  # ← NOVO
     routes_auth,        # ← NOVO (Autenticação)
+    routes_optional,    # ← NOVO (Endpoints Opcionais)
     # Health Data Routes
     routes_usuarios_saude,
     routes_saude,
@@ -112,6 +113,9 @@ app.include_router(routes_checkout.router, prefix="/api/v1", tags=["Checkout"])
 app.include_router(routes_webhooks.router, prefix="/api/v1", tags=["Webhooks"])
 app.include_router(routes_subscriptions.router, prefix="/api/v1", tags=["Subscriptions"])
 app.include_router(routes_admin_payments.router, prefix="/api/v1", tags=["Admin - Payments"])
+
+# Endpoints Opcionais (Stubs para evitar 404)
+app.include_router(routes_optional.router, prefix="/api/v1", tags=["Optional"])
 
 
 # ======================
