@@ -217,8 +217,12 @@ async def excluir_idoso(idoso_id: int):
 
 
 # ====================================
-# ENDPOINTS PARA FAMILIARES
+# ENDPOINTS PARA FAMILIARES (DEPRECATED)
 # ====================================
+# ⚠️ DEPRECATED: These endpoints use the legacy 'familiares' table
+# Please use /idosos/{id}/familiares endpoints from eva-enterprise API instead
+# This section will be removed in a future version after data migration
+# Migration script: migrations/v22_migrate_familiares_to_membros.sql
 
 @app.post("/familiares")
 async def criar_familiar(request: FamiliarRequest):
