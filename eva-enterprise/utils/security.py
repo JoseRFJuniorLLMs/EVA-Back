@@ -134,8 +134,7 @@ async def get_current_user(
                     nome as name, 
                     email, 
                     tipo as role, 
-                    ativo as active,
-                    plano_assinatura as subscription_tier
+                    ativo as active
                 FROM usuarios 
                 WHERE email = :email
             """), 
