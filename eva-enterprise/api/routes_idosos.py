@@ -88,9 +88,9 @@ async def list_idosos(
             SELECT i.*
             FROM idosos i
             WHERE i.ativo = true
-            AND (:nome IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
-            AND (:cpf IS NULL OR i.cpf = :cpf)
-            AND (:telefone IS NULL OR i.telefone = :telefone)
+            AND (:nome::text IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
+            AND (:cpf::text IS NULL OR i.cpf = :cpf)
+            AND (:telefone::text IS NULL OR i.telefone = :telefone)
             ORDER BY i.id DESC
             LIMIT :limit OFFSET :skip
         """)
@@ -111,9 +111,9 @@ async def list_idosos(
             INNER JOIN usuarios_idosos ui ON ui.idoso_id = i.id
             WHERE ui.usuario_id = :user_id
             AND i.ativo = true
-            AND (:nome IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
-            AND (:cpf IS NULL OR i.cpf = :cpf)
-            AND (:telefone IS NULL OR i.telefone = :telefone)
+            AND (:nome::text IS NULL OR LOWER(i.nome) LIKE LOWER(:nome_pattern))
+            AND (:cpf::text IS NULL OR i.cpf = :cpf)
+            AND (:telefone::text IS NULL OR i.telefone = :telefone)
             ORDER BY i.id DESC
             LIMIT :limit OFFSET :skip
         """)
