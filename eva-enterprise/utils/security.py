@@ -152,7 +152,11 @@ async def get_current_user(
                 detail="Inactive user account"
             )
         
-        return dict(user)
+        # Add user_id as alias for id (for compatibility with existing code)
+        user_dict = dict(user)
+        user_dict["user_id"] = user_dict["id"]
+        
+        return user_dict
         
     except HTTPException:
         raise
