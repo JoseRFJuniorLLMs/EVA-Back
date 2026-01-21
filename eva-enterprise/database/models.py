@@ -100,9 +100,10 @@ class MembroFamilia(Base):
     parent_id = Column(Integer, ForeignKey('membros_familia.id'), nullable=True)
     nome = Column(String, nullable=False)
     parentesco = Column(String, nullable=False)
+    telefone = Column(String)
+    email = Column(String)  # ✅ Added email field
     foto_url = Column(Text)
     is_responsavel = Column(Boolean, default=False)
-    telefone = Column(String)
     criado_em = Column(DateTime, default=datetime.datetime.now)
     atualizado_em = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
 

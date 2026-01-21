@@ -107,15 +107,20 @@ class IdosoResponse(IdosoBase):
 class FamiliarBase(BaseModel):
     nome: str
     parentesco: str
-    telefone: str
+    telefone: Optional[str] = None
+    email: Optional[str] = None
+    foto_url: Optional[str] = None
     is_responsavel: bool = False
 
 class FamiliarCreate(FamiliarBase):
-    pass
+    parent_id: Optional[int] = None  # For hierarchical family tree
 
 class FamiliarResponse(FamiliarBase):
     id: int
     idoso_id: int
+    parent_id: Optional[int] = None
+    criado_em: datetime
+    atualizado_em: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class LegadoDigitalCreate(BaseModel):
