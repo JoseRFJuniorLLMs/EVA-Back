@@ -306,3 +306,47 @@ async def dashboard_ia(idoso_id: int, db: AsyncSession = Depends(get_db)):
         "emocoes_recentes": emocoes[:7],  # Última semana
         "insights_recentes": insights[:5]  # Top 5
     }
+
+# ==================== BEHAVIORAL NOTES & EVA STATE ====================
+
+@router.get("/behavioral-notes/{idoso_id}", tags=["IA Avançada"])
+async def get_behavioral_notes(
+    idoso_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retorna notas comportamentais detalhadas do idoso"""
+    from sqlalchemy import select
+    from database.models import BehavioralNote
+    
+    result = await db.execute(
+        select(BehavioralNote)
+        .where(BehavioralNote.idoso_id == idoso_id)
+        .order_by(BehavioralNote.created_at.desc())
+    )
+    return result.scalars().all()
+
+@router.get("/eva-state/{idoso_id}", tags=["IA Avançada"])
+async def get_eva_state(
+    idoso_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retorna o estado da personalidade da EVA em relação ao idoso"""
+    # Como não temos uma tabela específica de 'estado_personalidade' no SQL mas temos a lógica no v29.sql
+    # (eva_personality_state), vamos buscar ou retornar um padrão
+    from sqlalchemy import select
+    from database.models import Idoso # Poderia ter um campo ou tabela separada
+    
+    # Simulação baseada na tabela 'eva_personality_state' do SQL
+    query = text("SELECT * FROM eva_personality_state WHERE idoso_id = :id")
+    result = await db.execute(query, {"id": idoso_id})
+    row = result.fetchone()
+    
+    if not row:
+        return {
+            "idoso_id": idoso_id,
+            "relationship_level": 1,
+            "dominant_emotion": "amigavel",
+            "interaction_count": 0
+        }
+    
+    return dict(row._mapping)

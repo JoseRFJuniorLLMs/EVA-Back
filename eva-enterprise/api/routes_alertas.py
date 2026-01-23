@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, text
 from database.connection import get_db
 from database.repositories.alerta_repo import AlertaRepository
 from schemas import (
@@ -105,3 +106,37 @@ async def get_emotional_history(idoso_id: int):
         {"data": "Sáb", "feliz": 90, "neutro": 5, "triste": 5},
         {"data": "Dom", "feliz": 85, "neutro": 10, "triste": 5},
     ]
+
+# ==================== HEALTH THINKING AUDIT ====================
+
+@router.get("/health/thinking-process/{alerta_id}", tags=["Alertas"])
+async def get_thinking_process(
+    alerta_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Retorna o processo de pensamento da IA para um alerta específico"""
+    query = text("""
+        SELECT * FROM health_thinking_audit 
+        WHERE id = (SELECT ligacao_id FROM alertas WHERE id = :id)
+    """)
+    result = await db.execute(query, {"id": alerta_id})
+    row = result.fetchone()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Thinking process not found for this alert")
+        
+    return dict(row._mapping)
+@router.patch("/health/thinking-process/{id}/mark-notified", tags=["Alertas"])
+async def mark_thinking_notified(
+    id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """Marca que o cuidador foi notificado sobre um insight de pensamento"""
+    query = text("""
+        UPDATE health_thinking_audit 
+        SET caregiver_notified = True, notified_at = NOW() 
+        WHERE id = :id
+    """)
+    await db.execute(query, {"id": id})
+    await db.commit()
+    return {"message": "Marked as notified"}

@@ -40,7 +40,9 @@ from api import (
     routes_checkout,  # ← NOVO (Checkout de Pagamentos)
     routes_webhooks,  # ← NOVO (Webhooks de Gateways)
     routes_subscriptions,  # ← NOVO (Gerenciar Assinaturas)
-    routes_admin_payments  # ← NOVO (Admin de Pagamentos)
+    routes_admin_payments,  # ← NOVO (Admin de Pagamentos)
+    routes_automation,
+    routes_ab_testing
 )
 
 load_dotenv()
@@ -116,6 +118,10 @@ app.include_router(routes_admin_payments.router, prefix="/api/v1", tags=["Admin 
 
 # Endpoints Opcionais (Stubs para evitar 404)
 app.include_router(routes_optional.router, prefix="/api/v1", tags=["Optional"])
+
+# Automação e Testes
+app.include_router(routes_automation.router, prefix="/api/v1/automation", tags=["Automation"])
+app.include_router(routes_ab_testing.router, prefix="/api/v1/admin", tags=["AB Testing"])
 
 
 # ======================

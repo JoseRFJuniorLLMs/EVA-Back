@@ -466,6 +466,146 @@ class PredicaoEmergencia(Base):
     criado_em = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class BehavioralNote(Base):
+    __tablename__ = "behavioral_notes"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    category = Column(String(50), nullable=False)
+    observation = Column(Text, nullable=False)
+    confidence = Column(Numeric(3, 2))
+    evidence = Column(JSONB, default=[])
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    active = Column(Boolean, default=True)
+
+
+class AutomationTask(Base):
+    __tablename__ = "automation_tasks"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    task_type = Column(String(50), nullable=False)
+    service_name = Column(String(100), nullable=False)
+    task_params = Column(JSONB, nullable=False)
+    status = Column(String(50), default='pending')
+    approval_required = Column(Boolean, default=True)
+    approved_by = Column(Integer)
+    approved_at = Column(DateTime)
+    execution_log = Column(JSONB)
+    screenshots = Column(JSONB)
+    result = Column(JSONB)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+    executed_at = Column(DateTime)
+    completed_at = Column(DateTime)
+
+
+class AutomationApproval(Base):
+    __tablename__ = "automation_approvals"
+    
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('automation_tasks.id', ondelete='CASCADE'), nullable=False)
+    approver_id = Column(Integer, nullable=False)
+    approval_status = Column(String(20))
+    approval_reason = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    responded_at = Column(DateTime)
+
+
+class AutomationExecutionLog(Base):
+    __tablename__ = "automation_execution_log"
+    
+    id = Column(Integer, primary_key=True)
+    task_id = Column(Integer, ForeignKey('automation_tasks.id', ondelete='CASCADE'), nullable=False)
+    step_number = Column(Integer, nullable=False)
+    step_name = Column(String(200), nullable=False)
+    step_status = Column(String(50))
+    screenshot_url = Column(Text)
+    step_data = Column(JSONB)
+    error_message = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class EpisodicMemory(Base):
+    __tablename__ = "episodic_memories"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+    speaker = Column(String(20), nullable=False)
+    content = Column(Text, nullable=False)
+    emotion = Column(String(50))
+    importance = Column(Numeric(3, 2), default=0.5)
+    topics = Column(JSONB)
+    session_id = Column(String(100))
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class ABTestConfig(Base):
+    __tablename__ = "ab_test_config"
+    
+    id = Column(Integer, primary_key=True)
+    test_name = Column(String(100), unique=True, nullable=False)
+    description = Column(Text)
+    enabled = Column(Boolean, default=True)
+    percentage_group_a = Column(Integer, default=50)
+    group_a_name = Column(String(50), default='thinking_mode')
+    group_b_name = Column(String(50), default='normal_mode')
+    started_at = Column(DateTime, default=datetime.datetime.utcnow)
+    ended_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ABTestAssignment(Base):
+    __tablename__ = "ab_test_assignments"
+    
+    id = Column(Integer, primary_key=True)
+    test_name = Column(String(100), nullable=False)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    assigned_group = Column(String(50), nullable=False)
+    assigned_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class ABTestMetric(Base):
+    __tablename__ = "ab_test_metrics"
+    
+    id = Column(Integer, primary_key=True)
+    test_name = Column(String(100), nullable=False)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    assigned_group = Column(String(50), nullable=False)
+    metric_type = Column(String(100), nullable=False)
+    metric_value = Column(Numeric(10, 4))
+    metadata = Column(JSONB)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class HealthThinkingAudit(Base):
+    __tablename__ = "health_thinking_audit"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    thought_process = Column(Text, nullable=False)
+    risk_level = Column(String(20))
+    caregiver_notified = Column(Boolean, default=False)
+    notified_at = Column(DateTime)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class Biografia(Base):
+    __tablename__ = "biografias"
+    
+    id = Column(Integer, primary_key=True)
+    idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    titulo = Column(String(200), nullable=False)
+    conteudo = Column(Text, nullable=False)
+    data_acontecimento = Column(Date)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
 # =====================================================
 # INTELLIGENCE MODULE (O Cérebro Farmacêutico)
 # =====================================================

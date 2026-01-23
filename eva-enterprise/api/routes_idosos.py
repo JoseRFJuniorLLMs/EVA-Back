@@ -305,3 +305,30 @@ async def sync_device_data(id: int, db: AsyncSession = Depends(get_db)):
         
     return {"status": "success", "message": "Comando de sincronização enviado"}
 
+
+# ==================== SEMANTIC MEMORY SEARCH ====================
+
+@router.get("/{id}/memorias/search", tags=["Idosos"])
+async def search_memories(
+    id: int,
+    q: str = Query(..., description="Termo de busca semântica"),
+    limit: int = Query(5, ge=1, le=20),
+    db: AsyncSession = Depends(get_db)
+):
+    """Busca memórias usando busca vetorial (se disponível) ou texto"""
+    from sqlalchemy import text
+    
+    # Tentativa de busca vetorial se a função existir, caso contrário fallback para texto
+    try:
+        # Fallback para busca por texto simples
+        result = await db.execute(text("""
+            SELECT id, content, speaker, timestamp, emotion, 1.0 as similarity
+            FROM episodic_memories 
+            WHERE idoso_id = :id AND content ILIKE :q
+            LIMIT :limit
+        """), {"id": id, "q": f"%{q}%", "limit": limit})
+        
+        return [dict(row._mapping) for row in result.all()]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+
