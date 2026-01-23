@@ -42,7 +42,8 @@ from api import (
     routes_subscriptions,  # ← NOVO (Gerenciar Assinaturas)
     routes_admin_payments,  # ← NOVO (Admin de Pagamentos)
     routes_automation,
-    routes_ab_testing
+    routes_ab_testing,
+    routes_finops  # ← NOVO
 )
 
 load_dotenv()
@@ -95,7 +96,7 @@ app.include_router(routes_extras.router, prefix="/api/v1/extras", tags=["Extras"
 app.include_router(routes_orquestrador.router, prefix="/api/v1/orquestrador", tags=["Orquestrador"])
 app.include_router(routes_protocolos.router, prefix="/api/v1/protocolos", tags=["Protocolos"])
 app.include_router(routes_historico.router, prefix="/api/v1/historico", tags=["Histórico"])
-app.include_router(routes_placeholders.router, prefix="/api/v1", tags=["Placeholders"])
+app.include_router(routes_finops.router, prefix="/api/v1/finops", tags=["FinOps"])
 app.include_router(routes_assinaturas.router, prefix="/api/v1/assinaturas", tags=["Assinaturas"])
 app.include_router(routes_ia.router, prefix="/api/v1/ia", tags=["IA Avançada"])
 
