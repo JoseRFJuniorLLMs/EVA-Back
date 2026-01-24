@@ -108,7 +108,7 @@ app.include_router(routes_saude.router, prefix="/api/v1/saude", tags=["Saúde - 
 app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=["Saúde - Analytics"])
 
 # Sistema de Saúde Mental (PHQ-9, GAD-7, C-SSRS, Diário de Humor, NLP, Protocolo de Emergência)
-app.include_router(routes_mental_health.router, tags=["Mental Health"])
+app.include_router(routes_mental_health.router)
 
 # Dashboard de Monitoramento (Thinking Mode, A/B Testing, Epidemiologia)
 app.include_router(routes_dashboard.router, prefix="/api/v1", tags=["Dashboard"])

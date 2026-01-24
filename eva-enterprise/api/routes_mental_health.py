@@ -21,7 +21,7 @@ from .schemas.mental_health_schemas import (
     ScaleType, RiskLevel
 )
 
-router = APIRouter(prefix="/api/v1/mental-health", tags=["Mental Health"])
+router = APIRouter(prefix="/api/v1/mental-health", tags=["Dashboard - Saude Mental"])
 logger = logging.getLogger(__name__)
 
 
