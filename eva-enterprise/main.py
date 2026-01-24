@@ -43,7 +43,9 @@ from api import (
     routes_admin_payments,  # ← NOVO (Admin de Pagamentos)
     routes_automation,
     routes_ab_testing,
-    routes_finops  # ← NOVO
+    routes_finops,  # ← NOVO
+    # Mental Health Routes
+    routes_mental_health  # ← NOVO (Sistema de Saúde Mental)
 )
 
 load_dotenv()
@@ -104,6 +106,9 @@ app.include_router(routes_ia.router, prefix="/api/v1/ia", tags=["IA Avançada"])
 app.include_router(routes_usuarios_saude.router, prefix="/api/v1/saude/usuarios", tags=["Saúde - Usuários"])
 app.include_router(routes_saude.router, prefix="/api/v1/saude", tags=["Saúde - Dados"])
 app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=["Saúde - Analytics"])
+
+# Sistema de Saúde Mental (PHQ-9, GAD-7, C-SSRS, Diário de Humor, NLP, Protocolo de Emergência)
+app.include_router(routes_mental_health.router, tags=["Mental Health"])
 
 # Dashboard de Monitoramento (Thinking Mode, A/B Testing, Epidemiologia)
 app.include_router(routes_dashboard.router, prefix="/api/v1", tags=["Dashboard"])

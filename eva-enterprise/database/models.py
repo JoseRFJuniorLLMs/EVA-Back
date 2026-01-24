@@ -803,7 +803,7 @@ class Nutricao(Base):
 class CicloMenstrual(Base):
     """Registros do ciclo menstrual"""
     __tablename__ = "ciclo_menstrual"
-    
+
     id = Column(Integer, primary_key=True)
     cliente_id = Column(Integer, ForeignKey('usuarios.id', ondelete='CASCADE'), nullable=False)
     data_menstruacao = Column(Date)
@@ -813,6 +813,303 @@ class CicloMenstrual(Base):
     sintomas_json = Column(JSONB)  # Sintomas adicionais
     timestamp_coleta = Column(DateTime, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
-    
+
     # Relacionamento
     usuario = relationship("Usuario", back_populates="ciclo_menstrual")
+
+
+# =====================================================================
+# MODELOS DE SAÚDE MENTAL
+# =====================================================================
+
+class MentalHealthAssessment(Base):
+    """Avaliações clínicas de saúde mental (PHQ-9, GAD-7, C-SSRS, etc)"""
+    __tablename__ = "mental_health_assessments"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    scale_type = Column(String(50), nullable=False)  # PHQ9, GAD7, C-SSRS, PSS10, Y-BOCS, PCL5
+    score = Column(Integer, nullable=False)
+    severity_level = Column(String(50))  # minimal, mild, moderate, moderately_severe, severe
+    assessed_at = Column(DateTime, default=datetime.datetime.now)
+    questions_answers = Column(JSONB, default=[])
+    professional_id = Column(Integer, ForeignKey('cuidadores.id', ondelete='SET NULL'))
+    notes = Column(Text)
+    interpretation = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="mental_health_assessments")
+    professional = relationship("Cuidador", backref="mental_health_assessments")
+
+
+class MoodDiary(Base):
+    """Diário de humor (manhã, tarde, noite)"""
+    __tablename__ = "mood_diary"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    date = Column(Date, nullable=False, default=datetime.date.today)
+    time_of_day = Column(String(20), nullable=False)  # morning, afternoon, evening
+    mood_score = Column(Integer)  # 1-10
+    anxiety_level = Column(Integer)  # 1-10
+    energy_level = Column(Integer)  # 1-10
+    sleep_quality = Column(Integer)  # 1-10
+    sleep_hours = Column(Numeric(4, 2))
+    awakenings = Column(Integer)
+    notes = Column(Text)
+    symptoms = Column(JSONB, default=[])
+    triggers = Column(JSONB, default=[])
+    helpful_activities = Column(JSONB, default=[])
+    physical_symptoms = Column(JSONB, default=[])
+    intrusive_thoughts = Column(Boolean, default=False)
+    intrusive_thoughts_description = Column(Text)
+    accomplished_planned_activities = Column(Boolean)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamento
+    patient = relationship("Idoso", backref="mood_diary_entries")
+
+
+class MentalHealthCondition(Base):
+    """Diagnósticos formais de condições de saúde mental"""
+    __tablename__ = "mental_health_conditions"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    condition_name = Column(String(100), nullable=False)
+    condition_category = Column(String(50))  # mood_disorder, anxiety_disorder, etc
+    severity = Column(String(50))  # mild, moderate, severe
+    diagnosed_by = Column(Integer, ForeignKey('cuidadores.id', ondelete='SET NULL'))
+    diagnosis_date = Column(Date)
+    icd_10_code = Column(String(10))
+    current_status = Column(String(50), default='active')  # active, in_remission, resolved
+    notes = Column(Text)
+    comorbidities = Column(JSONB, default=[])
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="mental_health_conditions")
+    diagnosing_professional = relationship("Cuidador", backref="diagnosed_conditions")
+
+
+class Symptom(Base):
+    """Rastreamento granular de sintomas"""
+    __tablename__ = "symptoms"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    symptom_name = Column(String(100), nullable=False)
+    symptom_category = Column(String(50))  # cognitive, emotional, behavioral, physical, social
+    severity = Column(String(50))  # mild, moderate, severe
+    frequency = Column(String(50))  # rare, occasional, frequent, daily, constant
+    first_occurrence = Column(Date)
+    last_occurrence = Column(Date)
+    related_condition_id = Column(Integer, ForeignKey('mental_health_conditions.id', ondelete='SET NULL'))
+    notes = Column(Text)
+    impact_on_daily_life = Column(Integer)  # 1-10
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="symptoms")
+    related_condition = relationship("MentalHealthCondition", backref="symptoms")
+
+
+class Trigger(Base):
+    """Gatilhos que desencadeiam sintomas/crises"""
+    __tablename__ = "triggers"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    trigger_description = Column(String(255), nullable=False)
+    trigger_category = Column(String(50))  # interpersonal, environmental, physiological, cognitive
+    severity = Column(String(50))  # mild, moderate, severe
+    related_symptom_id = Column(Integer, ForeignKey('symptoms.id', ondelete='SET NULL'))
+    identified_at = Column(DateTime, default=datetime.datetime.now)
+    last_triggered = Column(DateTime)
+    frequency_count = Column(Integer, default=1)
+    notes = Column(Text)
+    coping_strategies = Column(JSONB, default=[])
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="triggers")
+    related_symptom = relationship("Symptom", backref="triggers")
+
+
+class TherapySession(Base):
+    """Sessões de terapia/consultas psicológicas"""
+    __tablename__ = "therapy_sessions"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    therapist_id = Column(Integer, ForeignKey('cuidadores.id', ondelete='SET NULL'))
+    session_date = Column(DateTime, nullable=False)
+    session_type = Column(String(50))  # individual, group, family, online, emergency
+    duration_minutes = Column(Integer)
+    main_topics = Column(JSONB, default=[])
+    interventions_used = Column(JSONB, default=[])
+    patient_mood_before = Column(Integer)  # 1-10
+    patient_mood_after = Column(Integer)  # 1-10
+    homework_assigned = Column(Text)
+    next_session_date = Column(DateTime)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="therapy_sessions")
+    therapist = relationship("Cuidador", backref="therapy_sessions")
+
+
+class CrisisEvent(Base):
+    """Registro de crises/eventos críticos"""
+    __tablename__ = "crisis_events"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    crisis_type = Column(String(50), nullable=False)  # suicidal_ideation, panic_attack, etc
+    severity = Column(String(50))  # mild, moderate, severe, life_threatening
+    occurred_at = Column(DateTime, nullable=False)
+    duration_minutes = Column(Integer)
+    location = Column(String(100))
+    precipitating_factors = Column(JSONB, default=[])
+    warning_signs = Column(JSONB, default=[])
+    intervention_taken = Column(JSONB, default=[])
+    emergency_contacts_notified = Column(JSONB, default=[])
+    hospitalization_required = Column(Boolean, default=False)
+    hospital_name = Column(String(200))
+    hospital_admission_date = Column(DateTime)
+    hospital_discharge_date = Column(DateTime)
+    follow_up_scheduled = Column(Boolean, default=False)
+    follow_up_date = Column(DateTime)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamento
+    patient = relationship("Idoso", backref="crisis_events")
+
+
+class SafetyPlan(Base):
+    """Planos de segurança para prevenção de crises"""
+    __tablename__ = "safety_plans"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    created_by = Column(Integer, ForeignKey('cuidadores.id', ondelete='SET NULL'))
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+    warning_signs = Column(JSONB, default=[])
+    internal_coping_strategies = Column(JSONB, default=[])
+    social_distractions = Column(JSONB, default=[])
+    people_to_contact = Column(JSONB, default=[])
+    professionals_to_contact = Column(JSONB, default=[])
+    crisis_hotlines = Column(JSONB, default=[])
+    environment_safety = Column(JSONB, default=[])
+    reasons_for_living = Column(JSONB, default=[])
+    active = Column(Boolean, default=True)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="safety_plans")
+    creator = relationship("Cuidador", backref="created_safety_plans")
+
+
+class MedicationSideEffect(Base):
+    """Efeitos colaterais de medicamentos"""
+    __tablename__ = "medication_side_effects"
+
+    id = Column(Integer, primary_key=True)
+    medication_log_id = Column(Integer, ForeignKey('agendamentos.id', ondelete='CASCADE'))
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    medication_id = Column(Integer, ForeignKey('medicamentos.id', ondelete='CASCADE'), nullable=False)
+    side_effect_name = Column(String(100), nullable=False)
+    severity = Column(String(50))  # mild, moderate, severe
+    reported_at = Column(DateTime, default=datetime.datetime.now)
+    duration_hours = Column(Integer)
+    required_medical_attention = Column(Boolean, default=False)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="medication_side_effects")
+    medication = relationship("Medicamento", backref="side_effects")
+
+
+class NLPConversationAnalysis(Base):
+    """Análise NLP de conversas com IA"""
+    __tablename__ = "nlp_conversation_analysis"
+
+    id = Column(Integer, primary_key=True)
+    conversation_session_id = Column(Integer, ForeignKey('conversation_sessions.id', ondelete='CASCADE'))
+    message_id = Column(Integer, ForeignKey('conversation_messages.id', ondelete='CASCADE'))
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    sentiment_score = Column(Numeric(5, 4))  # -1 to 1
+    sentiment_label = Column(String(20))  # very_negative, negative, neutral, positive, very_positive
+    detected_keywords = Column(JSONB, default=[])
+    danger_flags = Column(JSONB, default=[])  # suicidal_ideation, self_harm, etc
+    extracted_entities = Column(JSONB, default={})
+    topic_classification = Column(JSONB, default=[])
+    analyzed_at = Column(DateTime, default=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="nlp_analyses")
+
+
+class MLPrediction(Base):
+    """Predições de modelos de Machine Learning"""
+    __tablename__ = "ml_predictions"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    model_name = Column(String(100), nullable=False)
+    model_version = Column(String(50))
+    prediction_type = Column(String(50))  # crisis_24h, suicide_risk, etc
+    prediction_value = Column(Numeric(5, 4))
+    prediction_label = Column(String(50))
+    confidence_score = Column(Numeric(5, 4))
+    features_used = Column(JSONB)
+    predicted_at = Column(DateTime, default=datetime.datetime.now)
+    valid_until = Column(DateTime)
+    actual_outcome = Column(String(50))
+    outcome_recorded_at = Column(DateTime)
+
+    # Relacionamento
+    patient = relationship("Idoso", backref="ml_predictions")
+
+
+class TreatmentGoal(Base):
+    """Objetivos terapêuticos"""
+    __tablename__ = "treatment_goals"
+
+    id = Column(Integer, primary_key=True)
+    patient_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
+    therapist_id = Column(Integer, ForeignKey('cuidadores.id', ondelete='SET NULL'))
+    goal_description = Column(Text, nullable=False)
+    goal_category = Column(String(50))  # symptom_reduction, behavioral_change, etc
+    target_date = Column(Date)
+    status = Column(String(50), default='active')  # active, achieved, partially_achieved, not_achieved
+    progress_percentage = Column(Integer, default=0)
+    measurable_criteria = Column(Text)
+    notes = Column(Text)
+    created_at = Column(DateTime, default=datetime.datetime.now)
+    updated_at = Column(DateTime, default=datetime.datetime.now, onupdate=datetime.datetime.now)
+
+    # Relacionamentos
+    patient = relationship("Idoso", backref="treatment_goals")
+    therapist = relationship("Cuidador", backref="assigned_treatment_goals")
+
+
+class AssessmentScaleReference(Base):
+    """Referência para questões das escalas de avaliação"""
+    __tablename__ = "assessment_scales_reference"
+
+    id = Column(Integer, primary_key=True)
+    scale_type = Column(String(50), nullable=False)
+    version = Column(String(20), default='1.0')
+    language = Column(String(10), default='pt-BR')
+    questions = Column(JSONB, nullable=False)
+    scoring_rules = Column(JSONB, nullable=False)
+    interpretation_guide = Column(JSONB, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.now)
