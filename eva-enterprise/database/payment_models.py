@@ -102,3 +102,48 @@ class WisePaymentReference(Base):
         self.status = "used"
         self.used_at = datetime.utcnow()
         self.subscription_id = subscription_id
+
+
+class WebhookLog(Base):
+    """
+    Log de webhooks recebidos para auditoria e debug.
+    """
+    __tablename__ = "webhook_logs"
+
+    id = Column(Integer, primary_key=True)
+    provider = Column(String(50), nullable=False, index=True)  # stripe, asaas, opennode, wise
+    event_type = Column(String(100), nullable=False, index=True)
+    event_id = Column(String(255), nullable=True)  # ID unico do evento no provider
+    payload = Column(JSON, nullable=False)  # Payload completo
+    status = Column(String(20), default="received")  # received, processing, processed, failed, ignored
+    error_message = Column(Text, nullable=True)
+    processing_time_ms = Column(Integer, nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+    processed_at = Column(DateTime, nullable=True)
+
+    def __repr__(self):
+        return f"<WebhookLog {self.provider}/{self.event_type} ({self.status})>"
+
+
+class PaymentAuditLog(Base):
+    """
+    Log de auditoria de acoes em pagamentos.
+    """
+    __tablename__ = "payment_audit_logs"
+
+    id = Column(Integer, primary_key=True)
+    action = Column(String(50), nullable=False)  # create, update, approve, reject, refund
+    entity_type = Column(String(50), nullable=False)  # transaction, subscription
+    entity_id = Column(Integer, nullable=False)
+    user_id = Column(Integer, ForeignKey("usuarios.id"), nullable=True)
+    admin_id = Column(Integer, nullable=True)  # ID do admin que realizou acao
+    old_value = Column(JSON, nullable=True)
+    new_value = Column(JSON, nullable=True)
+    ip_address = Column(String(45), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+
+    created_at = Column(DateTime, default=datetime.utcnow, index=True)
+
+    def __repr__(self):
+        return f"<PaymentAuditLog {self.action} {self.entity_type}:{self.entity_id}>"

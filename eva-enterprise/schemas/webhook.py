@@ -89,16 +89,20 @@ class OpenNodeWebhookEvent(BaseModel):
 # ==========================================
 
 class WebhookProcessedResponse(BaseModel):
-    """Response padrão para webhooks"""
+    """Response padrao para webhooks"""
     received: bool = Field(True, description="Webhook recebido")
     event_id: Optional[str] = Field(None, description="ID do evento")
-    processed_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp de processamento")
-    
+    message: Optional[str] = Field(None, description="Mensagem adicional")
+    queued: bool = Field(True, description="Indica se foi enfileirado para processamento async")
+    processed_at: datetime = Field(default_factory=datetime.utcnow, description="Timestamp de recebimento")
+
     class Config:
         schema_extra = {
             "example": {
                 "received": True,
                 "event_id": "evt_abc123",
-                "processed_at": "2026-01-15T10:00:00Z"
+                "message": "Webhook queued for processing",
+                "queued": True,
+                "processed_at": "2026-01-25T10:00:00Z"
             }
         }
