@@ -31,7 +31,7 @@ class ABTestRepository:
             assigned_group=group,
             metric_type=metric_type,
             metric_value=value,
-            metadata=metadata
+            extra_data=metadata
         )
         self.db.add(metric)
         await self.db.commit()

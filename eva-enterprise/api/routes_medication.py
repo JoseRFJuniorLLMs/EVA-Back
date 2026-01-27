@@ -8,9 +8,9 @@ from typing import List
 from datetime import datetime, date, timedelta
 import logging
 
-from ..database.connection import get_db
-from ..database.models import (
-    Medication, MedicationSchedule, MedicationLog,
+from database.connection import get_db
+from database.models import (
+    # Medication, MedicationSchedule, MedicationLog,  # TODO: Create these models
     MedicationSideEffect, Idoso
 )
 from pydantic import BaseModel, Field

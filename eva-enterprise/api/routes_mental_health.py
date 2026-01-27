@@ -7,9 +7,9 @@ from typing import List, Optional
 from datetime import datetime, date, timedelta
 import logging
 
-from ..database.connection import get_db
-from ..database.repositories.mental_health_repository import MentalHealthRepository
-from .schemas.mental_health_schemas import (
+from database.connection import get_db
+from database.repositories.mental_health_repository import MentalHealthRepository
+from api.schemas.mental_health_schemas import (
     AssessmentCreate, AssessmentResponse, AssessmentTrend,
     MoodDiaryCreate, MoodDiaryResponse, MoodStatistics,
     CrisisEventCreate, CrisisEventResponse,

@@ -46,7 +46,7 @@ from api import (
     routes_finops,  # ← NOVO
     # Mental Health Routes
     routes_mental_health,  # ← NOVO (Sistema de Saúde Mental)
-    routes_medication  # ← NOVO (Gestão de Medicação)
+    # routes_medication  # ← DESABILITADO (modelos Medication* não existem ainda)
 )
 
 load_dotenv()
@@ -110,7 +110,7 @@ app.include_router(routes_dashboard_saude.router, prefix="/api/v1/saude", tags=[
 
 # Sistema de Saúde Mental (PHQ-9, GAD-7, C-SSRS, Diário de Humor, NLP, Protocolo de Emergência)
 app.include_router(routes_mental_health.router)
-app.include_router(routes_medication.router)
+# app.include_router(routes_medication.router)  # DESABILITADO (modelos não existem)
 
 # Dashboard de Monitoramento (Thinking Mode, A/B Testing, Epidemiologia)
 app.include_router(routes_dashboard.router, prefix="/api/v1", tags=["Dashboard"])
