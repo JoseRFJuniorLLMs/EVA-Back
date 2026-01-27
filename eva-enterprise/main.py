@@ -54,8 +54,8 @@ load_dotenv()
 # ==========================
 # CONFIGURAÇÕES
 # ==========================
-# AJUSTE: Mudei o padrão para 8000 para bater com seus testes e o Flutter
-PORT = int(os.getenv("PORT", "8000"))
+# AJUSTE: Porta interna 8001 (nginx faz proxy SSL na porta 8000)
+PORT = int(os.getenv("PORT", "8001"))
 
 # Configuração de logging
 logging.basicConfig(level=logging.INFO)
