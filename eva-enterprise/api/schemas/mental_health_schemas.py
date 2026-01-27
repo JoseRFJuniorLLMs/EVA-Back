@@ -132,7 +132,7 @@ class AssessmentTrend(BaseModel):
 class MoodDiaryCreate(BaseModel):
     """Criar entrada no diário de humor"""
     patient_id: int = Field(..., gt=0)
-    date: date = Field(default_factory=date.today)
+    entry_date: date = Field(default_factory=date.today)
     time_of_day: TimeOfDay
     mood_score: Optional[int] = Field(None, ge=1, le=10)
     anxiety_level: Optional[int] = Field(None, ge=1, le=10)
@@ -153,7 +153,7 @@ class MoodDiaryCreate(BaseModel):
         json_schema_extra = {
             "example": {
                 "patient_id": 123,
-                "date": "2026-01-24",
+                "entry_date": "2026-01-24",
                 "time_of_day": "evening",
                 "mood_score": 6,
                 "anxiety_level": 4,
@@ -172,7 +172,7 @@ class MoodDiaryResponse(BaseModel):
     """Resposta de entrada no diário"""
     id: int
     patient_id: int
-    date: date
+    entry_date: date
     time_of_day: str
     mood_score: Optional[int]
     anxiety_level: Optional[int]

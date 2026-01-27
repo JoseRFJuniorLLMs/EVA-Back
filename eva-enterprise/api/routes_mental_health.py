@@ -135,7 +135,7 @@ async def create_mood_entry(
         mood_entry = await MentalHealthRepository.create_mood_entry(
             session=db,
             patient_id=mood_data.patient_id,
-            date=mood_data.date,
+            date=mood_data.entry_date,
             time_of_day=mood_data.time_of_day.value,
             mood_score=mood_data.mood_score,
             anxiety_level=mood_data.anxiety_level,
