@@ -571,14 +571,14 @@ class ABTestAssignment(Base):
 
 class ABTestMetric(Base):
     __tablename__ = "ab_test_metrics"
-    
+
     id = Column(Integer, primary_key=True)
     test_name = Column(String(100), nullable=False)
     idoso_id = Column(Integer, ForeignKey('idosos.id', ondelete='CASCADE'), nullable=False)
     assigned_group = Column(String(50), nullable=False)
     metric_type = Column(String(100), nullable=False)
     metric_value = Column(Numeric(10, 4))
-    metadata = Column(JSONB)
+    extra_data = Column(JSONB)  # renamed from 'metadata' (reserved in SQLAlchemy)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
